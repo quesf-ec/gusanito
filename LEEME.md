@@ -41,7 +41,6 @@ HUD y las capas.
 - **Lo que siente el pasajero** es el empujón de costado: rapidez del vagón × lo que gira, más el
   deslizamiento. Entre `C.divDesde` y `C.miedoDesde` divierte, más arriba asusta y sobre `C.caidaDesde`
   alguien puede salir volando.
-
 - **Los perros** pasean de esquina en esquina; si el gusanito pasa rápido cerca, salen corriendo a su
   lado, ladran, y luego se van de costado. Después de moverse, `apartarDelGusano()` los empuja fuera de
   la cabeza y los vagones, así que nunca quedan debajo.

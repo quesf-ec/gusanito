@@ -147,7 +147,7 @@
       corriendo: false, fin: false,
       cab: { x: x0, y: y0, ang: -Math.PI / 2, v: 0, giro: 0, golpe: 0, enfriar: 0 },
       vagones: [], paradas: [], caminantes: [], volando: [], textos: [], chispas: [],
-      cam: { x: x0, y: y0, ang: -Math.PI / 2 }, parando: 0, sigCrece: C.felicesPorVagon, avisoT: 0, sustoT: 0, ladridoT: 0,
+      cam: { x: x0, y: y0, ang: -Math.PI / 2 }, parando: 0, sigCrece: C.felicesPorVagon, avisoT: 0, sustoT: 0, ladridoT: 0, reponer: [],
     };
     for (let k = 0; k < C.vagonesIni; k++) agregarVagon();
     for (let k = 0; k < C.paradasActivas; k++) nuevaParada();
@@ -397,6 +397,7 @@
   function paradas(dt) {
     const k = S.cab;
     S.parando = 0;
+    for (let n = S.reponer.length - 1; n >= 0; n--) if ((S.reponer[n] -= dt) <= 0) { S.reponer.splice(n, 1); nuevaParada(); }
     for (let n = S.paradas.length - 1; n >= 0; n--) {
       const p = S.paradas[n];
       p.t += dt; p.nueva = Math.max(0, p.nueva - dt * 2);
@@ -407,7 +408,7 @@
         if (p.carga >= 0.5) { intercambio(p); p.carga = -99; }
       } else if (p.carga > 0) p.carga = Math.max(0, p.carga - dt);
       if (p.carga < -1 && !cerca) p.carga = 0; // ya puedes volver a parar
-      if (p.gente.length === 0 && p.carga >= 0) { S.paradas.splice(n, 1); setTimeout(() => S && !S.fin && nuevaParada(), 1500); }
+      if (p.gente.length === 0 && p.carga >= 0) { S.paradas.splice(n, 1); S.reponer.push(1.5); } // otra parada en 1,5 s de juego
     }
   }
 
@@ -576,13 +577,14 @@
   // ─── Bucle ─────────────────────────────────────────────────────────
   let ultimo = 0;
   function cuadro(ahora) {
-    const dt = Math.min(0.033, (ahora - ultimo) / 1000 || 0);
+    const real = Math.min(0.25, (ahora - ultimo) / 1000 || 0); // tiempo real, para el reloj
+    const dt = Math.min(0.033, real);                            // paso de la física, recortado
     ultimo = ahora;
     if (S.corriendo) {
       const sub = 3, h = dt / sub;
       for (let s = 0; s < sub; s++) { moverCabeza(h); moverVagones(h); }
       pasajeros(dt); paradas(dt); caminantes(dt);
-      S.t -= dt;
+      S.t -= real;
       if (S.t <= 0) terminar();
       actualizarHud();
     }
@@ -1003,13 +1005,26 @@
 
   // ─── Capas ─────────────────────────────────────────────────────────
   const capas = { inicio: $('#c-inicio'), pausa: $('#c-pausa'), fin: $('#c-fin') };
-  function mostrar(cual) { for (const [k, el] of Object.entries(capas)) el.hidden = k !== cual; }
-  function arrancar() { audio(); mostrar(null); S.corriendo = true; musica(true); }
+  let recordMem = 0;
+  const hud = $('.hud-juego');
+  // Con una capa abierta el HUD queda inerte (ni foco ni clics) y el foco va al botón principal de la
+  // capa; así Enter y Espacio siempre hacen lo que dice la capa, y no pausan ni apagan el sonido.
+  function mostrar(cual) {
+    for (const [k, el] of Object.entries(capas)) el.hidden = k !== cual;
+    hud.inert = cual !== null;
+    if (cual) capas[cual].querySelector('button')?.focus({ preventScroll: true });
+    else if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  }
+  function arrancar() { if (S.corriendo) return; audio(); mostrar(null); S.corriendo = true; musica(true); }
   function pausar() { if (!S.corriendo) return; S.corriendo = false; mostrar('pausa'); musica(false); }
   function terminar() {
     S.corriendo = false; S.fin = true; musica(false); sonar('fin');
-    let record = 0;
-    try { record = Math.max(+localStorage.getItem('gusanito.record') || 0, S.plata); localStorage.setItem('gusanito.record', record); } catch { record = S.plata; }
+    // el récord vive en memoria y, si se puede, también en el navegador (leer y guardar fallan por separado)
+    let guardado = 0;
+    try { guardado = +localStorage.getItem('gusanito.record') || 0; } catch { /* sin almacenamiento */ }
+    recordMem = Math.max(recordMem, guardado, S.plata, 0);
+    try { localStorage.setItem('gusanito.record', recordMem); } catch { /* sin almacenamiento */ }
+    const record = recordMem;
     $('#t-fin').textContent = plata(S.plata);
     $('#fin-frase').textContent = S.caidos > 2 ? 'La gente se divirtió… los que no salieron volando.' : S.felices >= 20 ? '¡El mejor gusanito de las fiestas!' : S.felices >= 8 ? 'Buena vuelta: la gente pide otra.' : 'Haz más zigzag: la gente quiere sentir el meneo.';
     $('#r-felices').textContent = S.felices; $('#r-asustados').textContent = S.asustados; $('#r-caidos').textContent = S.caidos;
@@ -1026,12 +1041,20 @@
   // ─── Mandos ────────────────────────────────────────────────────────
   const teclas = { ArrowLeft: 'izq', KeyA: 'izq', ArrowRight: 'der', KeyD: 'der', ArrowDown: 'freno', KeyS: 'freno', Space: 'freno' };
   addEventListener('keydown', (e) => {
-    if (teclas[e.code]) { entrada[teclas[e.code]] = true; e.preventDefault(); }
+    // solo mientras se juega se le quita a la página Espacio y las flechas (en una capa activan botones y desplazan)
+    if (teclas[e.code]) { entrada[teclas[e.code]] = true; if (S.corriendo) e.preventDefault(); }
+    if (e.repeat) return; // mantener P, Esc o Enter no alterna una y otra vez
     if (e.code === 'Escape' || e.code === 'KeyP') S.corriendo ? pausar() : (!S.fin && capas.pausa.hidden === false && arrancar());
-    if (e.code === 'Enter' && !S.corriendo) { if (S.fin) { reiniciar(); } arrancar(); }
+    // Enter sobre un botón ya lo activa el navegador; aquí solo cuando el foco está en otra parte
+    if (e.code === 'Enter' && !S.corriendo && !(e.target instanceof HTMLButtonElement)) { if (S.fin) reiniciar(); arrancar(); }
   });
-  addEventListener('keyup', (e) => { if (teclas[e.code]) { entrada[teclas[e.code]] = false; e.preventDefault(); } });
-  addEventListener('blur', () => { entrada.izq = entrada.der = entrada.freno = false; });
+  addEventListener('keyup', (e) => { if (teclas[e.code]) { entrada[teclas[e.code]] = false; if (S.corriendo) e.preventDefault(); } });
+  // al perder el foco (otra ventana, o un clic fuera del iframe en una.red) se suelta todo y se pausa
+  addEventListener('blur', () => {
+    entrada.izq = entrada.der = entrada.freno = false;
+    document.querySelectorAll('.mando.activo').forEach((b) => b.classList.remove('activo'));
+    pausar();
+  });
   for (const [id, clave] of [['#m-izq', 'izq'], ['#m-der', 'der'], ['#m-freno', 'freno']]) {
     const b = $(id);
     const on = (e) => { e.preventDefault(); entrada[clave] = true; b.classList.add('activo'); b.setPointerCapture?.(e.pointerId); };
@@ -1100,6 +1123,7 @@
   // ─── Arranque ──────────────────────────────────────────────────────
   medir();
   reiniciar();
+  mostrar('inicio');
   requestAnimationFrame((t) => { ultimo = t; cuadro(t); });
 
   // Para probar y calibrar desde la consola
