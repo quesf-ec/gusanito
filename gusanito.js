@@ -29,6 +29,7 @@
     ritmoDiv: 0.2,          // qué tan rápido se llena la diversión con meneo fuerte (por segundo)
     vidas: 3,               // golpes contra casas, árboles, el kiosco o el borde que aguanta el gusanito
     minDiv: 0.75,           // diversión mínima del grupo al llegar: si no llega, piden devuelto
+    ventana: 12,            // en los últimos segundos de la vuelta ya se pueden bajar (antes, solo al 100 %)
     combustible: 4,         // vueltas que da un tanque lleno
     vuelta: 60,             // segundos de cada vuelta; siempre el mismo tiempo, tenga el largo que tenga
     filaMax: 30,            // cuánta gente cabe en la fila de la estación
@@ -149,7 +150,19 @@
 
   // ─── Estado ────────────────────────────────────────────────────────
   let S; // estado de la vuelta
-  const entrada = { izq: false, der: false, freno: false };
+  const entrada = { izq: false, der: false, freno: false }; // lo que usa el chofer; se arma cada cuadro
+  const teclado = { izq: false, der: false, freno: false };
+  const toques = new Map(); // dedo → 'izq' | 'der': media pantalla izquierda gira a la izquierda, la otra a la derecha
+  let botonFreno = false;
+  const tactil = matchMedia('(pointer: coarse)').matches;
+  function armarEntrada() {
+    let ti = false, td = false;
+    for (const lado of toques.values()) { if (lado === 'izq') ti = true; else td = true; }
+    const dosLados = ti && td; // los dos lados a la vez: frena
+    entrada.izq = teclado.izq || (ti && !dosLados);
+    entrada.der = teclado.der || (td && !dosLados);
+    entrada.freno = teclado.freno || botonFreno || dosLados;
+  }
 
   function nuevoPasajero() {
     return {
@@ -408,8 +421,7 @@
     }
     S.dif = nivelDe(S.vagones.length);
     S.rompiendo = 1.4;
-    anunciar('¡La cola se partió!', '#FF8A7A', 3.5);
-    anunciar(`Llegó a ${S.pico} vagones`, '#fff', 3.5, true);
+    anunciar(`¡Se partió la cola! Llegaste a ${S.pico} vagones`, '#FF8A7A', 3.5);
     sonar('choque');
   }
   function colaAviso() {
@@ -516,6 +528,8 @@
   }
 
   const capacidad = () => S.vagones.length * C.asientos;
+  function diversion() { let n = 0, d = 0; for (const v of S.vagones) for (const p of v.asientos) if (p) { n++; d += p.div; } return n ? d / n : null; }
+  const puedenBajar = () => S.vuelta === null || S.vuelta <= C.ventana || (diversion() ?? 0) >= 0.995;
   const aBordo = () => S.vagones.reduce((n, v) => n + v.asientos.filter(Boolean).length, 0);
   const duracionVuelta = () => C.vuelta;
 
@@ -536,9 +550,9 @@
     // la vuelta corre; cuando se acaba, avisos y la fila se empieza a ir
     if (S.vuelta !== null) {
       S.vuelta -= dt;
-      if (S.vuelta <= 12 && !S.avisos.regresa) { S.avisos.regresa = true; anunciar('¡Regresa a la estación!', '#F2E14B', 3.5); anunciar('Sigue la flecha amarilla', '#fff', 3.5, true); }
+      if (S.vuelta <= 12 && !S.avisos.regresa) { S.avisos.regresa = true; anunciar('¡Regresa a la estación!', '#F2E14B', 3); }
       if (S.vuelta < 0 && !S.fin) {
-        if (!S.avisos.tarde) { S.avisos.tarde = true; anunciar('¡Se te hace tarde!', '#FF8A7A', 3.5); anunciar('La gente de la fila se está yendo', '#fff', 3.5, true); sonar('tarde'); }
+        if (!S.avisos.tarde) { S.avisos.tarde = true; anunciar('¡Tarde! La fila se está yendo', '#FF8A7A', 3); sonar('tarde'); }
         e.vaT = (e.vaT ?? 1.5) - dt;
         if (e.vaT <= 0 && e.fila.length) {
           e.vaT = 1.6;
@@ -554,7 +568,10 @@
     if (cerca && Math.abs(k.v) < 40) {
       S.parando = 1;
       e.carga += dt;
-      if (e.carga >= 0.6) { e.carga = -99; llegada(); }
+      if (e.carga >= 0.6) {
+        if (puedenBajar()) { e.carga = -99; llegada(); }
+        else { e.carga = -1.2; texto(ESTACION.x, ESTACION.y - 40, `Aún no: faltan ${Math.ceil(S.vuelta - C.ventana)} s, o llega al 100 %`, '#FFB3A8', 1.6); }
+      }
     } else if (e.carga > 0) e.carga = Math.max(0, e.carga - dt);
     if (e.carga < -1 && !cerca) e.carga = 0; // ya salió: la próxima vez que pare, cuenta
     for (let n = S.seVan.length - 1; n >= 0; n--) { const q = S.seVan[n]; q.t += dt; q.x += q.dir * 60 * dt; if (q.t > 3) S.seVan.splice(n, 1); }
@@ -592,13 +609,11 @@
       if (cobro > 0) { texto(ESTACION.x, ESTACION.y - 60, '+' + plata(cobro), '#8BD43B', 2); sonar('plata'); }
       if (devolver) {
         S.devueltos += n;
-        anunciar(`Llegaron con ${pct} % de diversión (hacen falta 75 %)`, '#FF8A7A', 3.5);
-        anunciar(`${n} piden devuelto · la fila se molesta`, '#fff', 3.5, true);
+        anunciar(`Piden devuelto: ${pct} % de diversión (mínimo 75 %)`, '#FF8A7A', 3.5);
         restarConfianza(n * 6);
         if (S.fin) return;
       } else if (cobro > 0) {
-        anunciar(pct >= 99 ? '¡100 %! Bajaron felices' : '¡Bajaron contentos!', '#8BD43B', 3);
-        anunciar(`Diversión ${pct} % · cobraste ${plata(cobro)}${S.noche ? ' (de noche ×1,5)' : ''}`, '#fff', 3, true);
+        anunciar(`${pct >= 99 ? '¡100 %!' : `¡${pct} %!`} Cobraste ${plata(cobro)}${S.noche ? ' de noche' : ''}`, '#8BD43B', 3);
         S.confianza = Math.min(100, S.confianza + 4);
       } else {
         anunciar('Bajaron asustados', '#FFB3A8', 3);
@@ -609,7 +624,7 @@
     if (suben) {
       S.avisos = {};
       texto(ESTACION.x, ESTACION.y - 30, `Subieron ${suben}`, '#fff', 1.4);
-      if (S.primera) { S.primera = false; anunciar('¡Dales una buena vuelta!', '#F2E14B', 4.5); anunciar('Zigzag y redondeles: el meneo los pone felices', '#fff', 4.5, true); }
+      if (S.primera) { S.primera = false; anunciar('Zigzag y redondeles para divertirlos', '#F2E14B', 4); }
       abrirEstacion();
     } else {
       S.vuelta = null;
@@ -826,7 +841,7 @@
     el.style.color = color; el.textContent = t;
     avisos.appendChild(el);
     S.anuncios.push({ el, vida: 0, dur });
-    while (S.anuncios.length > 3) { S.anuncios.shift().el.remove(); }
+    while (S.anuncios.length > 2) { S.anuncios.shift().el.remove(); }
   }
   function limpiarAvisos() { for (const a of S.anuncios) a.el.remove(); S.anuncios.length = 0; }
   function confeti(x, y, n) {
@@ -860,6 +875,7 @@
   // ─── Bucle ─────────────────────────────────────────────────────────
   let ultimo = 0;
   function cuadro(ahora) {
+    armarEntrada();
     const real = Math.min(0.25, (ahora - ultimo) / 1000 || 0); // tiempo real, para el reloj
     const dt = Math.min(0.033, real);                            // paso de la física, recortado
     ultimo = ahora;
@@ -1003,7 +1019,9 @@
       ctx.fillStyle = t.color; ctx.fillText(t.t, q.x, y);
     }
     ctx.globalAlpha = 1;
-    // flechas hacia las paradas fuera de pantalla
+    medidorDiversion();
+    zonasTactiles();
+    // flechas hacia la estación fuera de pantalla
     if (S.corriendo) flechas();
   }
 
@@ -1308,68 +1326,95 @@
     ctx.globalAlpha = 1;
   }
 
-  // Flecha hacia la estación cuando no se ve; parpadea cuando ya hay que volver
+  // Medidor de diversión pegado al gusanito (a la derecha de la cabeza): carita, barra y la marca del 75 %
+  function medidorDiversion() {
+    if (S.vuelta === null || S.fin || S.decidiendo) return;
+    const avg = diversion();
+    if (avg === null) return;
+    const x = W / 2 + Math.max(58, 70 * zoom), alto = 104, ancho = 12, top = H * PIVOTE - alto / 2;
+    const col = avg >= 0.995 ? '#F2E14B' : avg >= C.minDiv ? '#8BD43B' : '#F2B33D';
+    ctx.fillStyle = 'rgba(20,12,30,.55)'; rr(x - 11, top - 32, ancho + 22, alto + 56, 12); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; rr(x, top, ancho, alto, 6); ctx.fill();
+    const hh = Math.max(ancho, alto * avg);
+    ctx.fillStyle = col; rr(x, top + alto - hh, ancho, hh, 6); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.fillRect(x - 5, top + alto * (1 - C.minDiv) - 1, ancho + 10, 2); // 75 %
+    // carita: más sonrisa, más diversión
+    const fx = x + ancho / 2, fy = top - 16;
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(fx, fy, 10, 0, 7); ctx.fill();
+    ctx.fillStyle = '#24150F'; ctx.beginPath(); ctx.arc(fx - 3.5, fy - 2.5, 1.6, 0, 7); ctx.arc(fx + 3.5, fy - 2.5, 1.6, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#24150F'; ctx.lineWidth = 1.8; ctx.beginPath();
+    ctx.moveTo(fx - 5, fy + 3); ctx.quadraticCurveTo(fx, fy + 3 + (avg - 0.5) * 9, fx + 5, fy + 3); ctx.stroke();
+    ctx.font = '800 12px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+    ctx.fillText(Math.round(avg * 100) + '%', fx, top + alto + 13);
+  }
+
+  // En pantallas táctiles: cada mitad de la pantalla gira para su lado. Se marca la mitad que estás tocando.
+  function zonasTactiles() {
+    if (!tactil || !S.corriendo) return;
+    for (const lado of ['izq', 'der']) {
+      const activo = entrada[lado], x0 = lado === 'izq' ? 0 : W / 2;
+      if (activo) {
+        const g = ctx.createLinearGradient(lado === 'izq' ? 0 : W, 0, W / 2, 0);
+        g.addColorStop(0, 'rgba(242,225,75,.22)'); g.addColorStop(1, 'rgba(242,225,75,0)');
+        ctx.fillStyle = g; ctx.fillRect(x0, 0, W / 2, H);
+      }
+      const cx = lado === 'izq' ? 30 : W - 30, cy = H * 0.8, d = lado === 'izq' ? -1 : 1;
+      ctx.globalAlpha = activo ? 0.95 : 0.35; ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.moveTo(cx + d * 12, cy); ctx.lineTo(cx - d * 8, cy - 14); ctx.lineTo(cx - d * 8, cy + 14); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Flecha hacia la estación: gira alrededor del gusanito, por fuera del medidor (así no tapa el HUD ni el
+  // freno ni la cola). Parpadea cuando ya hay que volver.
   function flechas() {
-    const q = aPantalla(ESTACION.x, ESTACION.y);
-    if (q.x > 20 && q.x < W - 20 && q.y > 20 && q.y < H - 20) return;
-    const a = Math.atan2(q.y - H * PIVOTE, q.x - W / 2);
-    const m = 50;
-    const ex = clamp(W / 2 + Math.cos(a) * W, m, W - m), ey = clamp(H / 2 + Math.sin(a) * H, m + 140, H - m - 120);
-    const urge = S.vuelta !== null && S.vuelta <= 12;
+    if (Math.hypot(ESTACION.x - S.cab.x, ESTACION.y - S.cab.y) < 420) return; // ya está aquí cerca
+    const q = aPantalla(ESTACION.x, ESTACION.y), cx = W / 2, cy = H * PIVOTE;
+    const a = Math.atan2(q.y - cy, q.x - cx), r = Math.min(150, Math.min(W, H) * 0.34);
+    // si la estación queda detrás, la flecha se pone a un costado de la cola (sin dejar de apuntarle)
+    let b = a; const atras = vuelta(a - Math.PI / 2);
+    if (Math.abs(atras) < 0.9) b = Math.PI / 2 + (atras < 0 ? -0.9 : 0.9);
+    const ex = cx + Math.cos(b) * r, ey = cy + Math.sin(b) * r;
+    const urge = S.vuelta !== null && S.vuelta <= C.ventana;
     const s = urge && !quieto ? 1 + Math.abs(Math.sin(S.est.t * 6)) * 0.25 : 1;
-    ctx.save(); ctx.translate(ex, ey); ctx.rotate(a); ctx.scale(s * 1.3, s * 1.3);
+    ctx.save(); ctx.translate(ex, ey); ctx.rotate(a); ctx.scale(s * 1.2, s * 1.2);
     ctx.fillStyle = urge && S.vuelta < 0 ? '#FF8A7A' : '#F2E14B'; ctx.strokeStyle = '#24150F'; ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-8, -12); ctx.lineTo(-3, 0); ctx.lineTo(-8, 12); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.restore();
-    ctx.fillStyle = '#fff'; ctx.font = '800 12px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(30,15,40,.8)';
-    const t = 'Estación · ' + S.est.fila.length + ' en la fila', lx = clamp(ex - Math.cos(a) * 40, 70, W - 70), ly = ey - Math.sin(a) * 34;
-    ctx.strokeText(t, lx, ly); ctx.fillText(t, lx, ly);
+    ctx.font = '800 11px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(30,15,40,.8)'; ctx.fillStyle = '#fff';
+    const lx = cx + Math.cos(b) * (r + 30), ly = cy + Math.sin(b) * (r + 30);
+    ctx.strokeText('Estación', lx, ly); ctx.fillText('Estación', lx, ly);
   }
 
   // ─── HUD ───────────────────────────────────────────────────────────
-  const h = { largo: $('#h-largo'), vueltas: $('#h-vueltas'), comb: $('#h-comb'), plata: $('#h-plata'), vidas: $('#h-vidas'), titulo: $('#h-titulo'), tiempo: $('#h-tiempo-bar'), alegria: $('#h-alegria'), pct: $('#h-alegria-pct'), nota: $('#h-nota'), pie: $('#h-pie') };
+  const h = { objetivo: $('#h-objetivo'), tiempo: $('#h-tiempo-bar'), plata: $('#h-plata'), largo: $('#h-largo'), vueltas: $('#h-vueltas'), comb: $('#h-comb'), vidas: $('#h-vidas') };
   const reloj = (x) => Math.floor(x / 60) + ':' + String(x % 60).padStart(2, '0');
   let hudCache = '';
   function actualizarHud(forzar) {
-    let n = 0, cap = 0, div = 0;
-    for (const v of S.vagones) for (const p of v.asientos) { cap++; if (p) { n++; div += p.div; } }
-    const avg = n ? div / n : 0, pct = Math.round(avg * 100);
+    const avg = diversion() ?? 0, hay = aBordo() > 0;
     const vt = S.vuelta, seg = vt === null ? -1 : Math.ceil(vt);
-    const clave = [S.vagones.length, S.plata.toFixed(2), n, cap, pct, seg, S.est.fila.length, S.vidas, Math.round(S.confianza), S.viajes, S.vueltasRedondel, S.comb, S.decidiendo, S.pico].join('|');
+    const clave = [S.vagones.length, S.plata.toFixed(2), Math.round(avg * 100), hay, seg, S.est.fila.length, S.vidas, S.viajes, S.comb, S.decidiendo].join('|');
     if (clave === hudCache && !forzar) return;
     hudCache = clave;
+    // el objetivo: qué hacer ahora, en pocas palabras
+    let txt, clase = '';
+    if (S.decidiendo) txt = 'En la estación';
+    else if (vt === null) txt = S.est.fila.length ? 'Estaciónate en el parque' : 'Esperando gente en la fila';
+    else if (vt < 0) { txt = '¡Tarde! La fila se va'; clase = 'mal'; }
+    else if (hay && avg >= 0.995) { txt = `¡Listos! A la estación · ${reloj(seg)}`; clase = 'listo'; }
+    else if (vt <= C.ventana) { txt = `¡Vuelve a la estación! · ${reloj(seg)}`; clase = avg >= C.minDiv ? 'bien' : 'mal'; }
+    else if (hay && avg >= C.minDiv) { txt = `¡Bien! Sigue así · ${reloj(seg)}`; clase = 'bien'; }
+    else txt = `Diviértelos · ${reloj(seg)}`;
+    h.objetivo.textContent = txt; h.objetivo.className = 'objetivo ' + clase;
+    h.tiempo.style.width = vt === null ? '0%' : (clamp(vt / C.vuelta, 0, 1) * 100) + '%';
+    h.tiempo.classList.toggle('poco', vt !== null && vt <= C.ventana);
+    h.plata.textContent = plata(S.plata);
     h.largo.textContent = S.vagones.length;
     h.vueltas.textContent = S.viajes;
     h.comb.textContent = '●'.repeat(S.comb) + '○'.repeat(Math.max(0, C.combustible - S.comb));
     h.comb.classList.toggle('mal', S.comb <= 0);
-    h.plata.textContent = plata(S.plata);
     h.vidas.textContent = '♥'.repeat(S.vidas) + '♡'.repeat(Math.max(0, C.vidas - S.vidas));
-    // qué pasa ahora y qué hacer
-    let titulo, nota;
-    if (S.decidiendo) {
-      titulo = `En la estación · ${n} a bordo`;
-      nota = S.comb <= 0 ? 'Sin combustible: compra combustible para salir' : 'Decide qué comprar y pulsa ¡Vámonos!';
-    } else if (vt === null) {
-      titulo = `En la estación · fila ${S.est.fila.length}`;
-      nota = 'Estaciónate para subir a la gente';
-    } else if (vt < 0) {
-      titulo = '¡Tarde! · la fila se está yendo';
-      nota = 'Regresa ya a la estación';
-    } else {
-      titulo = `Vuelta · ${reloj(seg)} para volver`;
-      if (n && avg >= 0.995) nota = '¡100 %! Ya se divirtieron: estaciónate y cobra';
-      else if (vt <= 12) nota = '¡Regresa a la estación!';
-      else if (n && avg < C.minDiv) nota = 'Falta diversión: zigzag o redondeles. Menos de 75 % al llegar = devolución';
-      else nota = 'Van bien: regresa antes de que acabe el tiempo';
-    }
-    h.titulo.textContent = titulo; h.nota.textContent = nota;
-    h.tiempo.style.width = vt === null ? '0%' : (clamp(vt / C.vuelta, 0, 1) * 100) + '%';
-    h.tiempo.classList.toggle('poco', vt !== null && vt <= 12);
-    h.alegria.style.width = (n ? pct : 0) + '%';
-    h.alegria.style.background = avg >= 0.995 ? '#F2E14B' : avg >= C.minDiv ? '#8BD43B' : '#F2B33D';
-    h.pct.textContent = n ? pct + ' %' : '—';
-    h.pie.textContent = `Fila ${S.est.fila.length} · confianza ${Math.round(S.confianza)} % · próximo vagón ${plata(precioVagon(S.vagones.length + 1))}`;
   }
 
   // ─── Capas ─────────────────────────────────────────────────────────
@@ -1426,27 +1471,36 @@
   const teclas = { ArrowLeft: 'izq', KeyA: 'izq', ArrowRight: 'der', KeyD: 'der', ArrowDown: 'freno', KeyS: 'freno', Space: 'freno' };
   addEventListener('keydown', (e) => {
     // solo mientras se juega se le quita a la página Espacio y las flechas (en una capa activan botones y desplazan)
-    if (teclas[e.code]) { entrada[teclas[e.code]] = true; if (S.corriendo) e.preventDefault(); }
+    if (teclas[e.code]) { teclado[teclas[e.code]] = true; if (S.corriendo) e.preventDefault(); }
     if (e.repeat) return; // mantener P, Esc o Enter no alterna una y otra vez
     if (e.code === 'Escape' || e.code === 'KeyP') S.corriendo ? pausar() : (!S.fin && capas.pausa.hidden === false && arrancar());
     // Enter sobre un botón ya lo activa el navegador; aquí solo cuando el foco está en otra parte
     if (e.code === 'Enter' && !S.corriendo && !(e.target instanceof HTMLButtonElement)) { if (S.fin) reiniciar(); arrancar(); }
   });
-  addEventListener('keyup', (e) => { if (teclas[e.code]) { entrada[teclas[e.code]] = false; if (S.corriendo) e.preventDefault(); } });
+  addEventListener('keyup', (e) => { if (teclas[e.code]) { teclado[teclas[e.code]] = false; if (S.corriendo) e.preventDefault(); } });
   // al perder el foco (otra ventana, o un clic fuera del iframe en una.red) se suelta todo y se pausa
   addEventListener('blur', () => {
-    entrada.izq = entrada.der = entrada.freno = false;
+    teclado.izq = teclado.der = teclado.freno = false; toques.clear(); botonFreno = false;
     document.querySelectorAll('.mando.activo').forEach((b) => b.classList.remove('activo'));
     pausar();
   });
-  for (const [id, clave] of [['#m-izq', 'izq'], ['#m-der', 'der'], ['#m-freno', 'freno']]) {
-    const b = $(id);
-    const on = (e) => { e.preventDefault(); entrada[clave] = true; b.classList.add('activo'); b.setPointerCapture?.(e.pointerId); };
-    const off = () => { entrada[clave] = false; b.classList.remove('activo'); };
-    b.addEventListener('pointerdown', on);
-    b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('lostpointercapture', off);
-    b.addEventListener('contextmenu', (e) => e.preventDefault());
-  }
+  // Toques: toda la mitad izquierda de la pantalla gira a la izquierda; la derecha, a la derecha.
+  // Si el dedo cruza al otro lado, cambia de lado. Los dos lados a la vez frenan.
+  const ladoDe = (x) => (x < innerWidth / 2 ? 'izq' : 'der');
+  lienzo.addEventListener('pointerdown', (e) => {
+    if (!S.corriendo) return;
+    e.preventDefault();
+    toques.set(e.pointerId, ladoDe(e.clientX));
+    lienzo.setPointerCapture?.(e.pointerId);
+  });
+  lienzo.addEventListener('pointermove', (e) => { if (toques.has(e.pointerId)) toques.set(e.pointerId, ladoDe(e.clientX)); });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) lienzo.addEventListener(ev, (e) => toques.delete(e.pointerId));
+  lienzo.addEventListener('contextmenu', (e) => e.preventDefault());
+  // el botón Freno (abajo al centro)
+  const bFreno = $('#m-freno');
+  bFreno.addEventListener('pointerdown', (e) => { e.preventDefault(); botonFreno = true; bFreno.classList.add('activo'); bFreno.setPointerCapture?.(e.pointerId); });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) bFreno.addEventListener(ev, () => { botonFreno = false; bFreno.classList.remove('activo'); });
+  bFreno.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // ─── Sonido: banda de pueblo de juguete ────────────────────────────
   let ac = null, maestro = null, conSonido = true, musicaOn = false, sigNota = 0, compas = 0;

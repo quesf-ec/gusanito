@@ -17,8 +17,9 @@ presentación va en una.red, no aquí.
 - **La diversión es lo que cuenta**. Zigzag y **redondeles** (ahí el meneo vale ×1,5). Entre más gente a
   bordo, más cuesta divertirlos: cada pasajero por encima de 4 resta un 8 % de velocidad, hasta un 60 % menos.
 - **Para cobrar, el grupo tiene que llegar con 75 % de diversión o más.** Si no, **piden devuelto**, llegues
-  a tiempo o no: no pagan y la fila se molesta. Con **100 %** (todos al tope) puedes estacionarte antes de
-  que se acabe la vuelta, y cobras.
+  a tiempo o no: no pagan y la fila se molesta.
+- **Se bajan al final de la vuelta** (en los últimos 12 s, `C.ventana`, o después si llegas tarde), **o antes
+  si llegan al 100 %**. Si te estacionas antes, te dice cuántos segundos faltan.
 - Al llegar, pagan según lo felices que bajen ($0,25 si vienen en 0 %, hasta $1,25 felices, más $0,25 de
   propina si además no se asustaron).
 - **En la estación decides, y el tiempo se para** hasta que digas **¡Vámonos!**:
@@ -43,11 +44,16 @@ presentación va en una.red, no aquí.
   - **Sin combustible ni plata** para salir.
 - **Dos récords** (se guardan en el navegador): el **gusanito más largo** (el pico de vagones) y las **más
   vueltas** (viajes a la estación).
-- **HUD**: arriba, una franja con vagones, vueltas, combustible, plata y vidas. Debajo, el estado: qué pasa
-  ahora, cuánto falta para volver, la barra de diversión (la marca blanca es el 75 %) y qué hacer. Los avisos
-  salen en su propia franja, debajo de ese estado.
-- El gusanito acelera solo. **← →** (o los botones ◀ ▶ en el celular) para girar, **↓ / espacio / Freno**
-  para frenar. **P** o **Esc** para pausar. Con el celular acostado, el freno va a la derecha.
+- **HUD**: arriba, una barra con el objetivo en pocas palabras («Diviértelos», «¡Bien! Sigue así», «¡Listos! A
+  la estación», «¡Vuelve a la estación!», «¡Tarde!») con el tiempo de la vuelta y una rayita que se acaba, y la
+  plata. Debajo, fichas chiquitas con vagones 🚃, vueltas 🔁, combustible ⛽ y vidas ♥. **La diversión se ve
+  junto al gusanito**: una carita (más sonrisa, más diversión) y una barra con la raya blanca del 75 %. La
+  flecha de la estación gira alrededor del gusanito (si la estación queda detrás, se pone a un costado de la
+  cola). Los avisos salen debajo de las fichas, como mucho dos y de una sola línea.
+- **Mandos**: el gusanito acelera solo. En el celular, **toca y mantén la mitad izquierda o derecha de la
+  pantalla** para girar (si el dedo cruza al otro lado, cambia el giro). Para frenar, el botón **Freno** abajo
+  al centro, o los dos lados a la vez. En la computadora, **← →** para girar y **↓ / espacio** para frenar.
+  **P** o **Esc** para pausar.
 - La **cámara gira con la cabeza**: la trompa siempre apunta hacia arriba, así ◀ ▶ siempre son izquierda
   y derecha en la pantalla.
 - Topar a los **danzantes** cuesta $0,50 (no quita vidas). Los **perros** salen corriendo a ladrarle al
