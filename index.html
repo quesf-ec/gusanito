@@ -87,13 +87,14 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
       </div>
       <div class="hud-juego__cifras">
         <div class="cifras">
-          <p class="marcador" id="h-tiempo">5:00<small>la fiesta</small></p>
+          <p class="marcador" id="h-largo">2<small>vagones</small></p>
           <p class="marcador" id="h-plata" aria-live="polite">$0,00<small>la plata</small></p>
         </div>
         <div class="alegria">
-          <p class="micro"><span id="h-vuelta">En la estación</span><span id="h-gente">0/8 a bordo</span></p>
-          <p class="micro"><span>Alegría</span><span id="h-fila">12 en la fila</span></p>
+          <p class="micro"><span id="h-vuelta">En la estación</span><span id="h-vidas">♥♥♥</span></p>
+          <p class="micro"><span id="h-gente">0/8 a bordo</span><span>Alegría</span></p>
           <div class="medidor medidor--continuo" aria-hidden="true"><i id="h-alegria"></i></div>
+          <p class="micro"><span id="h-fila">Fila 12 · confianza 100 %</span></p>
           <p class="micro vagon" id="h-vagon"></p>
         </div>
       </div>
@@ -115,12 +116,12 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
       <p class="kicker">Fiestas del pueblo</p>
       <h1 id="t-juego">El gusanito</h1>
       <ol class="pasos">
-        <li><b class="n">1</b><p>El gusanito está en la <b>estación del parque</b>. La gente hace fila y se sube.</p></li>
-        <li><b class="n">2</b><p><b>Dales una buena vuelta</b>: zigzag y <b>redondeles</b>. El meneo los pone felices, y atrás se siente más.</p></li>
-        <li><b class="n">3</b><p><b>Regresa a la estación</b> antes de que se acabe la vuelta. Pagan según lo felices que vengan. Si te demoras, la gente de la fila se cansa y <b>se va</b>.</p></li>
-        <li><b class="n">4</b><p>Con la plata se enganchan <b>más vagones</b>: sube más gente, pero la cola es más brava.</p></li>
+        <li><b class="n">1</b><p>El gusanito está en la <b>estación del parque</b> y la gente hace fila para subirse.</p></li>
+        <li><b class="n">2</b><p><b>Dales una buena vuelta</b>: zigzag y <b>redondeles</b>. Regresa a la estación antes de que se acabe el tiempo de la vuelta.</p></li>
+        <li><b class="n">3</b><p>Pagan según lo felices que bajen. Si la vuelta fue muy corta o no se divirtieron, <b>piden devuelto</b>. Si esperan mucho, <b>se van</b>.</p></li>
+        <li><b class="n">4</b><p>Con la plata juntada se engancha <b>otro vagón</b>. Tu meta: el <b>gusanito más largo</b>.</p></li>
       </ol>
-      <p class="caption">No te pases de brusco: con muchos vagones la gente se asusta o sale volando. No topes a los danzantes; los perros te ladran, pero nunca los vas a pisar. La fiesta dura 5 minutos.</p>
+      <p class="caption">Se acaba cuando chocas tres veces contra casas, árboles o el borde (cada golpe suelta un vagón), o cuando la fila pierde la confianza y nadie quiere subirse.</p>
       <button class="btn btn--rojo boton-juego btn-block" id="b-arrancar" type="button">¡Arrancar!</button>
     </div>
   </div>
@@ -138,18 +139,19 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
   <!-- Fin de la vuelta -->
   <div class="capa" id="c-fin" hidden>
     <div class="vidrio pila capa__panel" role="dialog" aria-labelledby="t-fin">
-      <p class="kicker">Se acabó la fiesta</p>
+      <p class="kicker" id="fin-kicker">Se acabó el gusanito</p>
       <h2 id="t-fin">$0,00</h2>
       <p class="caption" id="fin-frase"></p>
       <dl class="resumen">
         <dt>Vueltas</dt><dd id="r-viajes">0</dd>
         <dt>Bajaron felices</dt><dd id="r-felices">0</dd>
-        <dt>Se cansaron de esperar</dt><dd id="r-sefueron">0</dd>
+        <dt>Se fueron esperando</dt><dd id="r-sefueron">0</dd>
+        <dt>Pidieron devuelto</dt><dd id="r-devueltos">0</dd>
         <dt>Bajaron asustados</dt><dd id="r-asustados">0</dd>
         <dt>Salieron volando</dt><dd id="r-caidos">0</dd>
         <dt>Choques</dt><dd id="r-choques">0</dd>
-        <dt>Vagones</dt><dd id="r-vagones">0</dd>
-        <dt>Tu récord</dt><dd id="r-record">$0,00</dd>
+        <dt>Plata juntada</dt><dd id="r-plata">$0,00</dd>
+        <dt>Tu mejor gusanito</dt><dd id="r-record">0 vagones</dd>
       </dl>
       <button class="btn btn--rojo boton-juego btn-block" id="b-otra" type="button">Otra vuelta</button>
     </div>
@@ -157,6 +159,6 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 </main>
 
 <script src="https://franciscombp.github.io/ds/mal/mal.js?v=1.0.22" defer></script>
-<script src="gusanito.js?v=6"></script>
+<script src="gusanito.js?v=7"></script>
 </body>
 </html>

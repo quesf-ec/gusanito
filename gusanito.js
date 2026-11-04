@@ -22,14 +22,15 @@
     divDesde: 120,          // desde aquí ya es divertido
     divLleno: 650,          // desde aquí la diversión ya no sube más rápido
     ritmoDiv: 0.2,          // qué tan rápido se llena la diversión con meneo fuerte (por segundo)
-    fiesta: 300,            // la fiesta dura 5 minutos
+    vidas: 3,               // golpes contra casas, árboles, el kiosco o el borde que aguanta el gusanito
+    vueltaMin: 25,          // si la vuelta dura menos, piden devuelto
     vuelta: 45,             // segundos que dura cada vuelta con los pasajeros (+4 por cada vagón de más)
     filaMax: 30,            // cuánta gente cabe en la fila de la estación
     camGiro: 3.5,           // qué tan rápido gira la cámara para seguir a la cabeza (1/s)
   };
 
   // ─── El gusanito crece con la plata, y con cada vagón el juego se pone más bravo ─
-  // ganado: plata ganada en total para engancharlo · vMax: velocidad máxima · asist: ayuda al manejar (1 = toda, 0 = nada)
+  // ganado: plata juntada para enganchar ese vagón · vMax: velocidad máxima · asist: ayuda al manejar (1 = toda, 0 = nada)
   // ritmo: qué tan rápido se divierten · miedo / caida: empujón desde el que se asustan / salen volando
   // danzantes, perros: cuántos hay en el pueblo
   const NIVELES = [
@@ -146,7 +147,8 @@
     // estacionado en la estación del parque, mirando hacia la derecha
     const x0 = ESTACION.x + 70, y0 = ESTACION.y + 16;
     S = {
-      t: C.fiesta, plata: 0, ganado: 0, viajes: 0, felices: 0, asustados: 0, caidos: 0, choques: 0, seFueron: 0,
+      plata: 0, viajes: 0, felices: 0, asustados: 0, caidos: 0, choques: 0, seFueron: 0, devueltos: 0,
+      vidas: C.vidas, confianza: 100, viajeT: 0, motivo: null,
       corriendo: false, fin: false,
       cab: { x: x0, y: y0, ang: 0, v: 0, giro: 0, golpe: 0, enfriar: 0 },
       vagones: [], caminantes: [], volando: [], textos: [], chispas: [], anuncios: [], seVan: [],
@@ -270,19 +272,20 @@
   const solido = (x, y, m) => sdMundo(x, y, m + 1) < m;
   const vuelta = (a) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 
-  // Ayuda al manejar, más fuerte en los primeros niveles (A = S.dif.asist):
-  //  · si la trompa va a dar contra algo, se desvía hacia el lado libre y frena un poco
-  //  · sin tocar ◀ ▶, se endereza con la calle y se va al centro (en los redondeles no, para dar vueltas)
+  // Ayuda al manejar (A = S.dif.asist, 1 = toda, 0 = nada). Nunca te pelea el volante:
+  //  · si hay algo delante y no giras, o giras hacia el lado libre, se desvía un poco y frena un poco
+  //  · si no giras y vas en una calle, se endereza con la calle y se centra
   function ayudar(k, meta, dt) {
     const A = S.dif.asist;
-    if (A <= 0 || k.v < 30 || C.fantasma) return;
-    const mira = 35 + k.v * 0.5;
+    if (A <= 0 || C.fantasma || k.v < 30) return;
+    const mira = 40 + k.v * 0.45;
     const libre = (da) => { const a = k.ang + da; return !solido(k.x + Math.cos(a) * mira, k.y + Math.sin(a) * mira, C.cabezaA / 2); };
     if (!libre(0)) {
       const der = libre(0.5) || libre(1.1), izq = libre(-0.5) || libre(-1.1);
-      const lado = der && !izq ? 1 : izq && !der ? -1 : der && izq ? (libre(0.5) ? 1 : -1) : 0;
-      k.ang += lado * C.giro * 1.3 * A * dt;
-      k.v = Math.max(70, k.v - C.freno * 0.6 * A * dt);
+      const lado = der && izq ? (libre(0.5) ? 1 : -1) : der ? 1 : izq ? -1 : 0;
+      if (lado === 0 || (meta !== 0 && lado !== meta)) return; // si giras hacia la pared, te dejo
+      k.ang += lado * C.giro * 0.9 * A * dt;
+      k.v = Math.max(0, k.v - C.freno * 0.25 * A * dt);
       return;
     }
     if (meta !== 0 || enRedondel(k.x, k.y, 70)) return;
@@ -299,9 +302,7 @@
     const k = S.cab;
     const meta = (entrada.izq ? -1 : 0) + (entrada.der ? 1 : 0);
     k.giro += (meta - k.giro) * Math.min(1, C.giroSuave * dt);
-    // con la trompa pegada a una pared no acelera contra ella: así hay tiempo de girar y salir
-    const pegado = !C.fantasma && solido(k.x + Math.cos(k.ang) * (C.cabezaL / 2 + 6), k.y + Math.sin(k.ang) * (C.cabezaL / 2 + 6), 4);
-    let vMax = pegado ? Math.min(S.dif.vMax, 40) : S.dif.vMax;
+    let vMax = S.dif.vMax;
     // con ayuda, afloja al acercarse a la estación (para que sea fácil parar ahí)
     if (S.dif.asist > 0 && S.est.carga >= 0) {
       const rx = ESTACION.x - k.x, ry = ESTACION.y - k.y, d = Math.hypot(rx, ry);
@@ -312,8 +313,8 @@
     if (entrada.freno || subiendo) k.v = Math.max(0, k.v - C.freno * dt);
     else if (k.v < vMax) k.v = Math.min(vMax, k.v + C.acel * dt * (k.v < 0 ? 3 : 1));
     else k.v = Math.max(vMax, k.v - C.freno * 0.3 * dt);
-    // gira menos cuando va lento, como un carro de verdad, pero nunca nada: parado también puede enderezar
-    const efecto = Math.max(0.4, clamp(Math.abs(k.v) / 90, 0, 1)) * Math.sign(k.v || 1);
+    // el volante siempre responde: parado también se puede girar (a menos velocidad)
+    const efecto = Math.max(0.6, clamp(Math.abs(k.v) / 90, 0, 1)) * Math.sign(k.v || 1);
     k.ang += k.giro * C.giro * efecto * dt;
     ayudar(k, meta, dt);
     const dx = Math.cos(k.ang), dy = Math.sin(k.ang);
@@ -326,16 +327,12 @@
     const atras = { x: k.x - dx * media, y: k.y - dy * media };
     if (resolver(atras, C.cabezaA / 2)) { k.x += atras.x - (k.x - dx * media); k.y += atras.y - (k.y - dy * media); }
     if (golpe) {
+      // la pared solo frena lo que va contra ella: el rumbo sigue siendo tuyo, así puedes girar para salir
       const deFrente = Math.max(0, -(dx * golpe.nx + dy * golpe.ny)); // 0 = la roza, 1 = de frente
       const fuerza = deFrente * k.v;
       const umbral = 70 + 160 * S.dif.asist; // con ayuda, los roces no cuentan como choque
-      if (fuerza > umbral && k.enfriar <= 0) { chocar(fuerza, frente.x, frente.y); k.v *= -0.25; }
-      else {
-        // la pared lo desvía hacia lo largo de la calle; rozarla casi no frena, darle de frente sí
-        const tx = -golpe.ny, ty = golpe.nx, lado = Math.sign(dx * tx + dy * ty) || 1;
-        k.ang += vuelta(Math.atan2(ty * lado, tx * lado) - k.ang) * Math.min(1, 6 * deFrente * dt);
-        k.v = Math.max(0, k.v - (60 + 700 * deFrente) * dt);
-      }
+      if (fuerza > umbral && k.enfriar <= 0) { estrellar(fuerza, frente.x, frente.y); k.v *= 0.2; }
+      else k.v *= 1 - 0.4 * deFrente;
     }
     k.enfriar -= dt;
     k.golpe = Math.max(0, k.golpe - dt * 3);
@@ -349,6 +346,23 @@
     texto(x, y - 20, motivo || '¡Pum!', '#fff', 1.2);
     polvo(x, y, 14);
     sonar('choque');
+  }
+
+  // Un golpe contra una casa, un árbol, el kiosco o el borde: se asusta todo el gusanito, se suelta el
+  // último vagón (con su gente, que se cae) y se pierde una vida. Sin vidas, se acaba.
+  function estrellar(fuerza, x, y) {
+    chocar(fuerza, x, y, '¡Pum!');
+    S.choques++; S.vidas--;
+    restarConfianza(8);
+    if (S.vagones.length > 2) {
+      const v = S.vagones.pop();
+      for (const p of v.asientos) if (p) { S.asustados++; S.volando.push({ p, x: v.x, y: v.y, vx: azar(-120, 120), vy: azar(-120, 120), z: 0, vz: 240, t: 0, giro: azar(-8, 8) }); }
+      S.dif = nivelDe(S.vagones.length);
+      anunciar('¡Se soltó un vagón!', '#FF8A7A', 2.5);
+      sonar('caida');
+    }
+    if (S.vidas > 0 && !S.fin) texto(x, y - 60, '♥'.repeat(S.vidas), '#FFB3A8', 1.6);
+    if (S.vidas <= 0) terminar('golpes');
   }
 
   function moverVagones(dt) {
@@ -435,7 +449,7 @@
           const fx = Math.cos(v.ang), fy = Math.sin(v.ang), sg = -Math.sign(v.gir) || 1;
           // sale hacia donde se mecía el vagón
           S.volando.push({ p, x: v.x, y: v.y, vx: v.vx * 0.6 - fy * sg * 160, vy: v.vy * 0.6 + fx * sg * 160, z: 0, vz: 260, t: 0, giro: azar(-8, 8) });
-          S.caidos++; S.plata -= 1;
+          S.caidos++; S.plata -= 1; restarConfianza(3);
           texto(v.x, v.y - 30, '¡Salió volando! −$1', '#FF8A7A', 1.6);
           sonar('caida');
           for (const o of S.vagones) for (const q of o.asientos) if (q) q.miedo += 0.2;
@@ -450,22 +464,28 @@
 
   // La estación: llega gente a la fila; si el gusanito se demora, se cansan y se van.
   // Al parar ahí, todos se bajan y pagan según lo felices que vienen, y sube la siguiente tanda.
+  function restarConfianza(n) {
+    S.confianza = Math.max(0, S.confianza - n);
+    if (S.confianza <= 0 && !S.fin) terminar('confianza');
+  }
+
   function estacion(dt) {
     const k = S.cab, e = S.est;
     e.t += dt;
-    // llega gente: más o menos una tanda completa cada 30 s
+    if (aBordo() > 0) S.viajeT += dt; // cuánto dura el viaje de los que van a bordo
+    // llega gente: más o menos una tanda completa cada 30 s; con poca confianza ya no llega tanta
     e.llegaT -= dt;
-    if (e.llegaT <= 0 && e.fila.length < C.filaMax) { e.fila.push(nuevoPasajero()); e.llegaT = azar(0.7, 1.3) * 30 / capacidad(); }
+    if (e.llegaT <= 0 && e.fila.length < C.filaMax) { e.fila.push(nuevoPasajero()); e.llegaT = azar(0.7, 1.3) * 30 / capacidad() / Math.max(0.25, S.confianza / 100); }
     // la vuelta corre; cuando se acaba, avisos y la fila se empieza a ir
     if (S.vuelta !== null) {
       S.vuelta -= dt;
       if (S.vuelta <= 12 && !S.avisos.regresa) { S.avisos.regresa = true; anunciar('¡Regresa a la estación!', '#F2E14B', 3.5); anunciar('Sigue la flecha amarilla', '#fff', 3.5, true); }
-      if (S.vuelta < 0) {
+      if (S.vuelta < 0 && !S.fin) {
         if (!S.avisos.tarde) { S.avisos.tarde = true; anunciar('¡Se te hace tarde!', '#FF8A7A', 3.5); anunciar('La gente de la fila se está yendo', '#fff', 3.5, true); sonar('tarde'); }
         e.vaT = (e.vaT ?? 1.5) - dt;
         if (e.vaT <= 0 && e.fila.length) {
           e.vaT = 1.6;
-          const p = e.fila.shift(); S.seFueron++;
+          const p = e.fila.shift(); S.seFueron++; restarConfianza(5);
           S.seVan.push({ p, x: ESTACION.x - 40, y: PARQUE.b.y + PARQUE.b.h - 4, t: 0, dir: Math.random() < 0.5 ? -1 : 1 });
           texto(ESTACION.x - 60, ESTACION.y - 50, elige(['¡Ya no espero!', '¡Me voy!', '¡Qué demora!', 'Mejor otro día']), '#FFB3A8', 1.4);
         }
@@ -485,8 +505,10 @@
 
   function llegada() {
     S.anuncios.length = 0; // lo que pasa al llegar reemplaza los avisos de la vuelta
-    // 1 · se bajan todos y pagan según su alegría
-    let cobro = 0, bajan = 0, suma = 0;
+    const dura = S.viajeT; S.viajeT = 0;
+    const corta = dura < C.vueltaMin;
+    // 1 · bajan todos. Pagan según lo divertido que fue; si fue muy corta o no se divirtieron, piden devuelto
+    let cobro = 0, bajan = 0, suma = 0, devs = 0;
     for (const v of S.vagones) for (let s = 0; s < v.asientos.length; s++) {
       const q = v.asientos[s];
       if (!q) continue;
@@ -494,22 +516,34 @@
       if (q.asustado) { S.asustados++; continue; } // asustados no pagan
       const f = clamp(q.div, 0, 1);
       suma += f;
+      if (corta || f < 0.3) { devs++; continue; }
       let pago = 0.25 + 1.0 * f;
       if (f >= 0.9) { S.felices++; if (q.miedo < 0.3) pago += 0.25; } // propina
       cobro += Math.round(pago * 20) / 20;
     }
     if (bajan) {
       S.viajes++;
-      S.plata += cobro; S.ganado += cobro;
+      S.plata += cobro;
       const alegria = Math.round((suma / bajan) * 100);
-      texto(ESTACION.x, ESTACION.y - 60, '+' + plata(cobro), '#8BD43B', 2);
-      anunciar(alegria >= 85 ? '¡Bajaron felices!' : alegria >= 50 ? 'Bajaron contentos' : 'Bajaron aburridos', alegria >= 50 ? '#8BD43B' : '#FFB3A8', 3);
-      anunciar(`Alegría ${alegria} % · ${plata(cobro)}`, '#fff', 3, true);
-      sonar(cobro > 0 ? 'plata' : 'sube');
+      if (cobro > 0) { texto(ESTACION.x, ESTACION.y - 60, '+' + plata(cobro), '#8BD43B', 2); sonar('plata'); }
+      if (devs) {
+        S.devueltos += devs;
+        anunciar(corta ? '¡Muy corto! Devuélvanme la plata' : '¡No nos divertimos! Devuélvanme la plata', '#FF8A7A', 3.5);
+        anunciar(`${devs} piden devuelto · la fila se molesta`, '#fff', 3.5, true);
+        restarConfianza(devs * (corta ? 4 : 6));
+        if (S.fin) return;
+      } else if (cobro > 0) {
+        anunciar(alegria >= 85 ? '¡Bajaron felices!' : '¡Bajaron contentos!', '#8BD43B', 3);
+        anunciar(`Alegría ${alegria} % · ${plata(cobro)}`, '#fff', 3, true);
+        S.confianza = Math.min(100, S.confianza + 4);
+        sonar('plata');
+      } else {
+        anunciar('Bajaron asustados', '#FFB3A8', 3);
+      }
     }
-    // 2 · con la plata ganada se engancha otro vagón
+    // 2 · con la plata juntada se engancha otro vagón
     let nuevos = 0;
-    while (S.vagones.length < C.vagonesMax && S.ganado >= nivelDe(S.vagones.length + 1).ganado) { agregarVagon(); nuevos++; }
+    while (S.vagones.length < C.vagonesMax && S.plata >= nivelDe(S.vagones.length + 1).ganado) { agregarVagon(); nuevos++; }
     if (nuevos) {
       S.dif = nivelDe(S.vagones.length);
       ajustarCaminantes();
@@ -681,8 +715,6 @@
       const sub = 3, h = dt / sub;
       for (let s = 0; s < sub; s++) { moverCabeza(h); moverVagones(h); }
       pasajeros(dt); estacion(dt); caminantes(dt);
-      S.t -= real;
-      if (S.t <= 0) terminar();
       actualizarHud();
     }
     efectos(dt);
@@ -1132,32 +1164,30 @@
   }
 
   // ─── HUD ───────────────────────────────────────────────────────────
-  const h = { tiempo: $('#h-tiempo'), plata: $('#h-plata'), gente: $('#h-gente'), alegria: $('#h-alegria'), vuelta: $('#h-vuelta'), fila: $('#h-fila'), vagon: $('#h-vagon') };
+  const h = { largo: $('#h-largo'), plata: $('#h-plata'), gente: $('#h-gente'), alegria: $('#h-alegria'), vuelta: $('#h-vuelta'), vidas: $('#h-vidas'), fila: $('#h-fila'), vagon: $('#h-vagon') };
+  const reloj = (x) => Math.floor(x / 60) + ':' + String(x % 60).padStart(2, '0');
   let hudCache = '';
   function actualizarHud(forzar) {
-    const tt = Math.max(0, Math.ceil(S.t));
     let n = 0, cap = 0, div = 0;
     for (const v of S.vagones) for (const p of v.asientos) { cap++; if (p) { n++; div += p.div; } }
     const vt = S.vuelta === null ? null : Math.ceil(S.vuelta);
-    const clave = [tt, S.plata.toFixed(2), n, cap, Math.round(n ? (div / n) * 100 : 0), vt, S.est.fila.length, S.vagones.length].join('|');
+    const clave = [S.vagones.length, S.plata.toFixed(2), n, cap, Math.round(n ? (div / n) * 100 : 0), vt, S.est.fila.length, S.vidas, Math.round(S.confianza)].join('|');
     if (clave === hudCache && !forzar) return;
     hudCache = clave;
-    h.tiempo.firstChild.nodeValue = Math.floor(tt / 60) + ':' + String(tt % 60).padStart(2, '0');
+    h.largo.firstChild.nodeValue = S.vagones.length;
     h.plata.firstChild.nodeValue = plata(S.plata);
     h.gente.textContent = `${n}/${cap} a bordo`;
     h.alegria.style.width = (n ? (div / n) * 100 : 0) + '%';
-    const reloj = (x) => Math.floor(x / 60) + ':' + String(x % 60).padStart(2, '0');
     h.vuelta.textContent = vt === null ? 'En la estación' : vt >= 0 ? 'Vuelta ' + reloj(vt) : '¡Tarde! ' + reloj(-vt);
     h.vuelta.classList.toggle('poco', vt !== null && vt <= 12);
-    h.fila.textContent = S.est.fila.length + ' en la fila';
+    h.vidas.textContent = '♥'.repeat(S.vidas) + '♡'.repeat(Math.max(0, C.vidas - S.vidas));
+    h.fila.textContent = `Fila ${S.est.fila.length} · confianza ${Math.round(S.confianza)} %`;
     const sig = S.vagones.length < C.vagonesMax ? nivelDe(S.vagones.length + 1).ganado : null;
     h.vagon.textContent = sig === null ? 'Gusanito completo' : `Otro vagón al juntar ${plata(sig)}`;
-    h.tiempo.classList.toggle('poco', tt <= 20);
   }
 
   // ─── Capas ─────────────────────────────────────────────────────────
   const capas = { inicio: $('#c-inicio'), pausa: $('#c-pausa'), fin: $('#c-fin') };
-  let recordMem = 0;
   const hud = $('.hud-juego');
   const cifras = $('.hud-juego__cifras');
   // Con una capa abierta el HUD queda inerte (ni foco ni clics) y el foco va al botón principal de la
@@ -1170,19 +1200,26 @@
   }
   function arrancar() { if (S.corriendo) return; audio(); mostrar(null); S.corriendo = true; musica(true); }
   function pausar() { if (!S.corriendo) return; S.corriendo = false; mostrar('pausa'); musica(false); }
-  function terminar() {
-    S.corriendo = false; S.fin = true; musica(false); sonar('fin');
-    // el récord vive en memoria y, si se puede, también en el navegador (leer y guardar fallan por separado)
+  let mejorLargo = 0;
+  function terminar(motivo) {
+    if (S.fin) return;
+    S.corriendo = false; S.fin = true; S.motivo = motivo; musica(false); sonar('fin');
+    // el récord es el gusanito más largo: en memoria y, si se puede, también en el navegador
+    const largo = S.vagones.length;
     let guardado = 0;
-    try { guardado = +localStorage.getItem('gusanito.record') || 0; } catch { /* sin almacenamiento */ }
-    recordMem = Math.max(recordMem, guardado, S.plata, 0);
-    try { localStorage.setItem('gusanito.record', recordMem); } catch { /* sin almacenamiento */ }
-    const record = recordMem;
-    $('#t-fin').textContent = plata(S.plata);
-    $('#fin-frase').textContent = S.caidos > 2 ? 'La gente se divirtió… los que no salieron volando.' : S.vagones.length >= 7 ? '¡El mejor gusanito de las fiestas!' : S.seFueron > 8 ? 'Mucha gente se cansó de esperar: regresa a tiempo.' : S.vagones.length >= 4 ? 'Buena fiesta: la gente pide otra vuelta.' : 'Más zigzag y redondeles: la gente quiere sentir el meneo.';
+    try { guardado = +localStorage.getItem('gusanito.largo') || 0; } catch { /* sin almacenamiento */ }
+    mejorLargo = Math.max(mejorLargo, guardado, largo);
+    try { localStorage.setItem('gusanito.largo', mejorLargo); } catch { /* sin almacenamiento */ }
+    const vagones = (n) => n + (n === 1 ? ' vagón' : ' vagones');
+    $('#fin-kicker').textContent = motivo === 'golpes' ? 'Se acabaron las vidas' : 'Nadie quiere subirse';
+    $('#t-fin').textContent = vagones(largo);
+    $('#fin-frase').textContent = (motivo === 'golpes'
+      ? 'De tanto chocar el gusanito se deshizo. '
+      : 'La fila perdió la confianza: esperaron mucho o no se divirtieron. ')
+      + (largo >= 8 ? '¡Un gusanito de fiesta de verdad!' : largo >= 5 ? 'Buen largo: la fila te quiso.' : 'La próxima, más vagones: junta más plata.');
     $('#r-viajes').textContent = S.viajes; $('#r-felices').textContent = S.felices; $('#r-sefueron').textContent = S.seFueron;
-    $('#r-asustados').textContent = S.asustados; $('#r-caidos').textContent = S.caidos;
-    $('#r-choques').textContent = S.choques; $('#r-vagones').textContent = S.vagones.length; $('#r-record').textContent = plata(record);
+    $('#r-devueltos').textContent = S.devueltos; $('#r-asustados').textContent = S.asustados; $('#r-caidos').textContent = S.caidos;
+    $('#r-choques').textContent = S.choques; $('#r-plata').textContent = plata(S.plata); $('#r-record').textContent = vagones(mejorLargo);
     mostrar('fin');
   }
   $('#b-arrancar').addEventListener('click', arrancar);

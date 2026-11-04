@@ -19,18 +19,28 @@ presentación va en una.red, no aquí.
 - **Regresa a la estación** y para ahí: todos se bajan y **pagan según su alegría** ($0,25 si vienen
   aburridos, hasta $1,25 felices, más $0,25 de propina si además no se asustaron). Luego sube la siguiente
   tanda de la fila.
-- Si **te demoras** más que la vuelta, la gente de la fila se cansa y **se va**, y los pasajeros se
-  aburren. A los 12 s del final te avisa y la flecha amarilla parpadea.
+- Si **te demoras** más que la vuelta, la gente de la fila se cansa y **se va** (cada uno baja la
+  **confianza** de la fila). Los pasajeros también se aburren. A los 12 s del final te avisa y la flecha
+  amarilla parpadea.
+- Si la vuelta dura **menos de 25 s**, o si alguien baja **aburrido** (alegría menor a 30 %), **piden
+  devuelto**: no pagan y la fila se molesta.
 - **La plata trae vagones**: al juntar $8, $20, $35, $55, $80 y $110 se engancha otro (hasta 8). Caben 4
   personas más por vagón, pero con cada uno el gusanito va más rápido, la ayuda al manejar baja, la gente
   se asusta y sale volando más fácil, y hay más danzantes y perros.
-- La **fiesta dura 5 minutos**. Gana quien junte más plata.
+- **No hay reloj de fiesta.** Se acaba cuando:
+  - **Te quedan sin vidas** (♥♥♥): tres golpes contra casas, árboles, el kiosco o el borde. Cada golpe
+    **suelta el último vagón** (con su gente, que se cae) y le baja la confianza a la fila. Con dos
+    vagones ya no se suelta más.
+  - **Nadie quiere subirse**: la confianza de la fila llega a 0 porque la gente se fue esperando, pidió
+    devuelto o le fue mal en los golpes. Con poca confianza, la fila casi no llega.
+- **La meta es el gusanito más largo.** Lo que cuenta al final son los vagones; el récord del navegador
+  guarda el más largo que hayas logrado.
 - El gusanito acelera solo. **← →** (o los botones ◀ ▶ en el celular) para girar, **↓ / espacio / Freno**
   para frenar. **P** o **Esc** para pausar. Con el celular acostado, el freno va a la derecha.
 - La **cámara gira con la cabeza**: la trompa siempre apunta hacia arriba, así ◀ ▶ siempre son izquierda
   y derecha en la pantalla.
-- Topar a los **danzantes** cuesta $0,50. Los **perros** salen corriendo a ladrarle al gusanito: asustan
-  al chofer y a la gente, pero nunca los puedes pisar.
+- Topar a los **danzantes** cuesta $0,50 (no quita vidas). Los **perros** salen corriendo a ladrarle al
+  gusanito: asustan al chofer y a la gente, pero nunca los puedes pisar.
 
 ### El pueblo
 
@@ -52,13 +62,15 @@ Todo está en la tabla `NIVELES` al inicio de `gusanito.js`, por cantidad de vag
 | 7 | $80 | 250 | 15 % | 5 | 8 |
 | 8 | $110 | 250 | 0 | 6 | 8 |
 
-También bajan con los vagones los umbrales de miedo y de caída, y el ritmo al que se divierten.
+Los vagones se cuentan con la plata juntada (lo que se paga, sin descontar devoluciones). También bajan
+con los vagones los umbrales de miedo y de caída, y el ritmo al que se divierten. El tope es de 8
+vagones (`C.vagonesMax`).
 
 **La ayuda al manejar** (`ayudar()`): si la trompa va a dar contra algo, se desvía hacia el lado libre y
-frena un poco; si no tocas ◀ ▶, se endereza con la calle y se va al centro (en los redondeles no, para
-que puedas dar vueltas); cerca de la estación, afloja. Con ayuda, rozar una pared no cuenta como choque.
-En todos los niveles la pared desvía al gusanito a lo largo de la calle y con la trompa pegada no
-acelera contra ella. En la estación se queda quieto solo mientras baja y sube la gente.
+frena un poco; si no tocas ◀ ▶, se endereza con la calle y se centra (en los redondeles no, para que
+puedas dar vueltas). Nunca te pelea el volante: si giras hacia la pared, te deja. Cerca de la estación,
+afloja. Con ayuda, rozar una pared no cuenta como golpe. En la estación se queda quieto solo mientras
+baja y sube la gente.
 
 ## Cómo está hecho
 
@@ -67,6 +79,12 @@ HUD y las capas.
 
 - **Las paredes** son distancias con signo (`sdMundo()`): cuadras con las esquinas comidas por los
   redondeles, islas y el borde del pueblo. Todo lo redondo choca contra eso con la misma función.
+- **Al tocar una pared** el gusanito se desliza por ella, pero el rumbo sigue siendo tuyo: la pared solo
+  empuja y frena lo que va contra ella. Antes la pared también cambiaba el rumbo hacia su línea, y eso
+  dejaba la trompa pegada sin poder girar para salir.
+- **Golpes y confianza**: un golpe fuerte (`estrellar()`) quita una vida, suelta el último vagón y baja la
+  confianza. Los golpes de frente cuentan; los roces no. `restarConfianza()` es el único lugar donde se
+  decide que la fila se va: si llega a 0, se acaba la partida.
 - **La cabeza** es un carro simple: acelera sola, gira menos cuando va lento. La cámara la sigue
   pegada y gira con ella (`C.camGiro`); en el celular vertical la cabeza va más arriba para que los
   mandos no tapen la cola.
