@@ -5,8 +5,9 @@ escarabajo transformado, con ojos de pestañas, labios rojos y antenas) que arra
 vidrio con toldos de colores. El chofer zigzaguea y da vueltas para que los vagones se mezan y la gente
 grite.
 
-Por ahora es un **prototipo arcade** para probar esa mecánica. Se juega en `juego/`; `index.html` es la
-página de presentación con el juego embebido, igual que en los otros juegos de Quesf.
+Por ahora es un **prototipo arcade** para probar esa mecánica. El juego está en la raíz del repo
+(`index.html` y `gusanito.js`) y se publica en https://quesf-ec.github.io/gusanito/. La página de
+presentación va en una.red, no aquí.
 
 ## Cómo se juega
 
@@ -28,7 +29,7 @@ página de presentación con el juego embebido, igual que en los otros juegos de
 
 ## Cómo está hecho
 
-Todo en `juego/gusanito.js`, en canvas 2D, sin dependencias aparte del sistema de diseño MAL para el
+Todo en `gusanito.js`, en canvas 2D, sin dependencias aparte del sistema de diseño MAL para el
 HUD y las capas.
 
 - **La cabeza** es un carro simple: acelera sola, gira menos cuando va lento. La cámara la sigue
@@ -57,5 +58,5 @@ se desboca (cada vagón casi duplica al anterior); con 0,85 la cola ya casi no s
 
 ```sh
 python3 -m http.server
-# y abrir http://localhost:8000/juego/
+# y abrir http://localhost:8000/
 ```
