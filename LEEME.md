@@ -11,56 +11,62 @@ presentación va en una.red, no aquí.
 
 ## Cómo se juega
 
+- El gusanito arranca **estacionado en la estación del parque**, con 2 vagones. La gente hace fila en la
+  vereda del parque y se sube.
+- Cada **vuelta** tiene su tiempo (45 s, y 4 s más por cada vagón de más). En ese tiempo hay que **hacerlos
+  felices**: zigzag y **redondeles** (ahí el meneo vale ×1,5). Si vas recto sin gracia, se aburren un poco.
+  Atrás se siente más.
+- **Regresa a la estación** y para ahí: todos se bajan y **pagan según su alegría** ($0,25 si vienen
+  aburridos, hasta $1,25 felices, más $0,25 de propina si además no se asustaron). Luego sube la siguiente
+  tanda de la fila.
+- Si **te demoras** más que la vuelta, la gente de la fila se cansa y **se va**, y los pasajeros se
+  aburren. A los 12 s del final te avisa y la flecha amarilla parpadea.
+- **La plata trae vagones**: al juntar $8, $20, $35, $55, $80 y $110 se engancha otro (hasta 8). Caben 4
+  personas más por vagón, pero con cada uno el gusanito va más rápido, la ayuda al manejar baja, la gente
+  se asusta y sale volando más fácil, y hay más danzantes y perros.
+- La **fiesta dura 5 minutos**. Gana quien junte más plata.
 - El gusanito acelera solo. **← →** (o los botones ◀ ▶ en el celular) para girar, **↓ / espacio / Freno**
   para frenar. **P** o **Esc** para pausar. Con el celular acostado, el freno va a la derecha.
-- Frena en una **parada** (círculo amarillo con letrero) para que suba la gente. La primera está justo
-  delante, con un letrero de «¡Frena aquí!».
-- **Zigzag y vueltas**: el meneo llena la diversión de cada pasajero (la barrita amarilla bajo cada uno).
-  Los de atrás sienten más. En la **plaza** vale doble.
-- Si te pasas, se asustan (gotita azul) y, con latigazos muy fuertes, **salen volando** (−$1). En el nivel
-  1 nadie sale volando.
-- Los felices (corazón) se bajan en la siguiente parada y pagan $1, con propina si no se asustaron.
-- Chocar contra las casas asusta a todos; topar a los **danzantes** cuesta $0,50.
-- Los **perros** salen corriendo a ladrarle al gusanito y lo acompañan un rato a su lado: cuando llegan
-  a la par de la trompa, el chofer se asusta y frena de golpe, y la gente se asusta un poco. Pero nunca
-  los puedes pisar: siempre se apartan.
 - La **cámara gira con la cabeza**: la trompa siempre apunta hacia arriba, así ◀ ▶ siempre son izquierda
-  y derecha en la pantalla, vaya hacia donde vaya el gusanito.
-- **Niveles**: empiezas con 1:15. Cada nivel pide cierta cantidad de felices (3, 4, 5…); al lograrlo
-  ganas tiempo, se engancha un vagón más y todo se pone más bravo. El juego termina cuando se acaba el
-  tiempo.
+  y derecha en la pantalla.
+- Topar a los **danzantes** cuesta $0,50. Los **perros** salen corriendo a ladrarle al gusanito: asustan
+  al chofer y a la gente, pero nunca los puedes pisar.
+
+### El pueblo
+
+5×5 cuadras grandes (560 px) con calles de 210 px. En el centro, el **parque** con su kiosco y la
+estación en su lado de abajo. **8 redondeles**: uno en cada esquina del parque y cuatro más en el pueblo.
+Las cuadras de alrededor tienen la esquina recortada en curva.
 
 ### Cómo sube la dificultad
 
-Todo está en la tabla `NIVELES` al inicio de `gusanito.js`:
+Todo está en la tabla `NIVELES` al inicio de `gusanito.js`, por cantidad de vagones:
 
-| Nivel | Felices | Vagones | Velocidad | Ayuda | Danzantes | Perros | Tiempo extra |
-|------:|--------:|--------:|----------:|------:|----------:|-------:|-------------:|
-| 1 | 3 | 2 | 160 | 100 % | 0 | 2 | — |
-| 2 | 4 | 3 | 180 | 80 % | 1 | 3 | +45 s |
-| 3 | 5 | 4 | 200 | 60 % | 2 | 4 | +45 s |
-| 4 | 6 | 5 | 220 | 45 % | 3 | 5 | +50 s |
-| 5 | 7 | 6 | 235 | 30 % | 4 | 6 | +50 s |
-| 6 | 8 | 7 | 250 | 15 % | 5 | 7 | +55 s |
-| 7+ | 9, 11, 13… | 8 | 250 | 0 | 6 | 8 | +60 s |
+| Vagones | Se engancha al juntar | Velocidad | Ayuda | Danzantes | Perros |
+|--------:|----------------------:|----------:|------:|----------:|-------:|
+| 2 | (al empezar) | 165 | 100 % | 0 | 3 |
+| 3 | $8 | 185 | 80 % | 1 | 4 |
+| 4 | $20 | 200 | 60 % | 2 | 5 |
+| 5 | $35 | 220 | 45 % | 3 | 6 |
+| 6 | $55 | 235 | 30 % | 4 | 7 |
+| 7 | $80 | 250 | 15 % | 5 | 8 |
+| 8 | $110 | 250 | 0 | 6 | 8 |
 
-También bajan con el nivel los umbrales de miedo y de caída, y la gente se divierte más rápido al
-principio (`ritmo`).
+También bajan con los vagones los umbrales de miedo y de caída, y el ritmo al que se divierten.
 
 **La ayuda al manejar** (`ayudar()`): si la trompa va a dar contra algo, se desvía hacia el lado libre y
-frena un poco; si no tocas ◀ ▶, se endereza con la calle y se va al centro (en la plaza no, para que
-puedas dar vueltas); cerca de una parada con gente y asientos libres, afloja. Con ayuda, rozar una pared
-no cuenta como choque. Medido con un chofer que gira al azar: 0 choques por minuto en los niveles 1 y 2,
-unos 10 por minuto en el 7.
-
-En todos los niveles la pared desvía al gusanito a lo largo de la calle, y con la trompa pegada a una
-pared no acelera contra ella, así que siempre se puede girar y salir.
+frena un poco; si no tocas ◀ ▶, se endereza con la calle y se va al centro (en los redondeles no, para
+que puedas dar vueltas); cerca de la estación, afloja. Con ayuda, rozar una pared no cuenta como choque.
+En todos los niveles la pared desvía al gusanito a lo largo de la calle y con la trompa pegada no
+acelera contra ella. En la estación se queda quieto solo mientras baja y sube la gente.
 
 ## Cómo está hecho
 
 Todo en `gusanito.js`, en canvas 2D, sin dependencias aparte del sistema de diseño MAL para el
 HUD y las capas.
 
+- **Las paredes** son distancias con signo (`sdMundo()`): cuadras con las esquinas comidas por los
+  redondeles, islas y el borde del pueblo. Todo lo redondo choca contra eso con la misma función.
 - **La cabeza** es un carro simple: acelera sola, gira menos cuando va lento. La cámara la sigue
   pegada y gira con ella (`C.camGiro`); en el celular vertical la cabeza va más arriba para que los
   mandos no tapen la cola.

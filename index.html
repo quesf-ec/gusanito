@@ -27,8 +27,9 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 .cifras{display:flex;gap:var(--mal-e4);align-items:flex-start}
 .cifras .marcador{font-size:clamp(1.4rem, 1rem + 2vw, 2.2rem);color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.35)}
 .cifras .marcador small{color:rgba(255,255,255,.75)}
-.alegria{width:min(64vw, 250px);display:grid;gap:4px}
-.cifras .marcador.poco{color:#FFB3A8}
+.alegria{width:min(76vw, 300px);display:grid;gap:4px}
+.cifras .marcador.poco,.alegria .poco{color:#FFB3A8}
+.alegria .vagon{font-weight:600;opacity:.85;justify-content:flex-end;white-space:normal;text-align:right;letter-spacing:.04em}
 .alegria .micro{color:#fff;margin:0;display:flex;justify-content:space-between;gap:var(--mal-e2);white-space:nowrap;letter-spacing:.06em;font-weight:700;text-shadow:0 1px 0 rgba(0,0,0,.4)}
 .alegria .medidor--continuo{height:10px;background:rgba(0,0,0,.35)}
 .alegria .medidor--continuo > i{display:block;height:100%;width:0;border-radius:inherit;
@@ -74,7 +75,7 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 </head>
 <body>
 <main class="escena">
-  <canvas id="pueblo" role="img" aria-label="Un pueblo en fiestas visto desde arriba: calles con banderines, una plaza con su kiosco y el gusanito de colores con sus vagones llenos de gente"></canvas>
+  <canvas id="pueblo" role="img" aria-label="Un pueblo en fiestas visto desde arriba: calles largas con banderines, redondeles con flores, el parque con su kiosco y la estación, y el gusanito de colores con sus vagones llenos de gente"></canvas>
 
   <div class="hud-juego">
     <div class="hud-juego__arriba">
@@ -86,13 +87,14 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
       </div>
       <div class="hud-juego__cifras">
         <div class="cifras">
-          <p class="marcador" id="h-tiempo">1:15<small>tiempo</small></p>
+          <p class="marcador" id="h-tiempo">5:00<small>la fiesta</small></p>
           <p class="marcador" id="h-plata" aria-live="polite">$0,00<small>la plata</small></p>
         </div>
         <div class="alegria">
-          <p class="micro"><span id="h-nivel">Nivel 1</span><span id="h-meta">0/3 felices</span></p>
-          <p class="micro"><span>Alegría</span><span id="h-gente">0/8</span></p>
+          <p class="micro"><span id="h-vuelta">En la estación</span><span id="h-gente">0/8 a bordo</span></p>
+          <p class="micro"><span>Alegría</span><span id="h-fila">12 en la fila</span></p>
           <div class="medidor medidor--continuo" aria-hidden="true"><i id="h-alegria"></i></div>
+          <p class="micro vagon" id="h-vagon"></p>
         </div>
       </div>
     </div>
@@ -113,12 +115,12 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
       <p class="kicker">Fiestas del pueblo</p>
       <h1 id="t-juego">El gusanito</h1>
       <ol class="pasos">
-        <li><b class="n">1</b><p><b>Frena en las paradas</b> (las de letrero amarillo) para que suba la gente.</p></li>
-        <li><b class="n">2</b><p><b>Haz zigzag y da vueltas</b>: los vagones se mecen y la cola da latigazos. ¡Eso es lo que les gusta! Atrás se siente más.</p></li>
-        <li><b class="n">3</b><p><b>No te pases de brusco</b>: en los niveles altos, si la cola va muy rápido, la gente se asusta… o sale volando.</p></li>
-        <li><b class="n">4</b><p>Los que ya se divirtieron se bajan en la siguiente parada y <b>pagan</b>. Cada <b>nivel</b> pide más gente feliz: si lo logras ganas tiempo, el gusanito crece y todo se pone más bravo.</p></li>
+        <li><b class="n">1</b><p>El gusanito está en la <b>estación del parque</b>. La gente hace fila y se sube.</p></li>
+        <li><b class="n">2</b><p><b>Dales una buena vuelta</b>: zigzag y <b>redondeles</b>. El meneo los pone felices, y atrás se siente más.</p></li>
+        <li><b class="n">3</b><p><b>Regresa a la estación</b> antes de que se acabe la vuelta. Pagan según lo felices que vengan. Si te demoras, la gente de la fila se cansa y <b>se va</b>.</p></li>
+        <li><b class="n">4</b><p>Con la plata se enganchan <b>más vagones</b>: sube más gente, pero la cola es más brava.</p></li>
       </ol>
-      <p class="caption">En la plaza las vueltas valen doble. No topes a los danzantes. Los perros salen corriendo a ladrarte y te asustan, pero nunca los vas a pisar.</p>
+      <p class="caption">No te pases de brusco: con muchos vagones la gente se asusta o sale volando. No topes a los danzantes; los perros te ladran, pero nunca los vas a pisar. La fiesta dura 5 minutos.</p>
       <button class="btn btn--rojo boton-juego btn-block" id="b-arrancar" type="button">¡Arrancar!</button>
     </div>
   </div>
@@ -136,12 +138,14 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
   <!-- Fin de la vuelta -->
   <div class="capa" id="c-fin" hidden>
     <div class="vidrio pila capa__panel" role="dialog" aria-labelledby="t-fin">
-      <p class="kicker" id="fin-nivel">Se acabó el tiempo</p>
+      <p class="kicker">Se acabó la fiesta</p>
       <h2 id="t-fin">$0,00</h2>
       <p class="caption" id="fin-frase"></p>
       <dl class="resumen">
-        <dt>Pasajeros felices</dt><dd id="r-felices">0</dd>
-        <dt>Se bajaron asustados</dt><dd id="r-asustados">0</dd>
+        <dt>Vueltas</dt><dd id="r-viajes">0</dd>
+        <dt>Bajaron felices</dt><dd id="r-felices">0</dd>
+        <dt>Se cansaron de esperar</dt><dd id="r-sefueron">0</dd>
+        <dt>Bajaron asustados</dt><dd id="r-asustados">0</dd>
         <dt>Salieron volando</dt><dd id="r-caidos">0</dd>
         <dt>Choques</dt><dd id="r-choques">0</dd>
         <dt>Vagones</dt><dd id="r-vagones">0</dd>
@@ -153,6 +157,6 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 </main>
 
 <script src="https://franciscombp.github.io/ds/mal/mal.js?v=1.0.22" defer></script>
-<script src="gusanito.js?v=5"></script>
+<script src="gusanito.js?v=6"></script>
 </body>
 </html>

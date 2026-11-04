@@ -8,7 +8,8 @@
 
   // ─── Ajustes: todo lo que se calibra está aquí ──────────────────────
   const C = {
-    bloque: 380, calle: 190, cols: 5, filas: 5,       // el pueblo
+    bloque: 560, calle: 210, cols: 5, filas: 5,       // el pueblo: cuadras grandes, calles largas
+    redondel: 200, isla: 80,                           // radio de la calzada del redondel y de su isla
     acel: 150, freno: 480,                             // la cabeza (la velocidad máxima va por nivel)
     giro: 2.5, giroSuave: 9,
     cabezaL: 78, cabezaA: 46,
@@ -21,26 +22,26 @@
     divDesde: 120,          // desde aquí ya es divertido
     divLleno: 650,          // desde aquí la diversión ya no sube más rápido
     ritmoDiv: 0.2,          // qué tan rápido se llena la diversión con meneo fuerte (por segundo)
-    tiempo: 75,             // segundos para el nivel 1; cada nivel nuevo suma los suyos
-    paradasActivas: 4,
+    fiesta: 300,            // la fiesta dura 5 minutos
+    vuelta: 45,             // segundos que dura cada vuelta con los pasajeros (+4 por cada vagón de más)
+    filaMax: 30,            // cuánta gente cabe en la fila de la estación
     camGiro: 3.5,           // qué tan rápido gira la cámara para seguir a la cabeza (1/s)
   };
 
-  // ─── Niveles: empieza fácil para engancharte y se va poniendo bravo ─
-  // meta: felices para pasar de nivel · vagones · vMax: velocidad máxima · asist: ayuda al manejar (1 = toda, 0 = nada)
+  // ─── El gusanito crece con la plata, y con cada vagón el juego se pone más bravo ─
+  // ganado: plata ganada en total para engancharlo · vMax: velocidad máxima · asist: ayuda al manejar (1 = toda, 0 = nada)
   // ritmo: qué tan rápido se divierten · miedo / caida: empujón desde el que se asustan / salen volando
-  // danzantes, perros: cuántos hay en el pueblo · extra: segundos que ganas al llegar al nivel
+  // danzantes, perros: cuántos hay en el pueblo
   const NIVELES = [
-    { meta: 3, vagones: 2, vMax: 160, asist: 1,    ritmo: 1.8,  miedo: 900, caida: Infinity, danzantes: 0, perros: 2, extra: 0 },
-    { meta: 4, vagones: 3, vMax: 180, asist: 0.8,  ritmo: 1.5,  miedo: 820, caida: 1100, danzantes: 1, perros: 3, extra: 45 },
-    { meta: 5, vagones: 4, vMax: 200, asist: 0.6,  ritmo: 1.3,  miedo: 750, caida: 980,  danzantes: 2, perros: 4, extra: 45 },
-    { meta: 6, vagones: 5, vMax: 220, asist: 0.45, ritmo: 1.15, miedo: 700, caida: 900,  danzantes: 3, perros: 5, extra: 50 },
-    { meta: 7, vagones: 6, vMax: 235, asist: 0.3,  ritmo: 1.05, miedo: 670, caida: 860,  danzantes: 4, perros: 6, extra: 50 },
-    { meta: 8, vagones: 7, vMax: 250, asist: 0.15, ritmo: 1,    miedo: 650, caida: 820,  danzantes: 5, perros: 7, extra: 55 },
-    { meta: 9, vagones: 8, vMax: 250, asist: 0,    ritmo: 1,    miedo: 630, caida: 800,  danzantes: 6, perros: 8, extra: 60 },
+    { vagones: 2, ganado: 0,   vMax: 165, asist: 1,    ritmo: 1.1,  miedo: 900, caida: Infinity, danzantes: 0, perros: 3 },
+    { vagones: 3, ganado: 8,   vMax: 185, asist: 0.8,  ritmo: 1.0,  miedo: 820, caida: 1100, danzantes: 1, perros: 4 },
+    { vagones: 4, ganado: 20,  vMax: 200, asist: 0.6,  ritmo: 0.95, miedo: 750, caida: 980,  danzantes: 2, perros: 5 },
+    { vagones: 5, ganado: 35,  vMax: 220, asist: 0.45, ritmo: 0.9,  miedo: 700, caida: 900,  danzantes: 3, perros: 6 },
+    { vagones: 6, ganado: 55,  vMax: 235, asist: 0.3,  ritmo: 0.85, miedo: 670, caida: 860,  danzantes: 4, perros: 7 },
+    { vagones: 7, ganado: 80,  vMax: 250, asist: 0.15, ritmo: 0.8,  miedo: 650, caida: 820,  danzantes: 5, perros: 8 },
+    { vagones: 8, ganado: 110, vMax: 250, asist: 0,    ritmo: 0.8,  miedo: 630, caida: 800,  danzantes: 6, perros: 8 },
   ];
-  // después del último, cada nivel pide 2 felices más
-  const nivelDe = (n) => { const u = NIVELES.length, b = NIVELES[Math.min(n, u) - 1]; return n <= u ? b : { ...b, meta: b.meta + (n - u) * 2 }; };
+  const nivelDe = (vagones) => NIVELES[clamp(vagones - 2, 0, NIVELES.length - 1)];
 
   const PALETAS = [
     { cuerpo: '#8BD43B', borde: '#E8458B', toldo: ['#F2B33D', '#E8458B', '#5FB4E6', '#8BD43B'] },
@@ -68,55 +69,42 @@
   const plata = (n) => (n < 0 ? '-$' : '$') + Math.abs(n).toFixed(2).replace('.', ',');
 
   // ─── El pueblo ─────────────────────────────────────────────────────
+  // Cuadras grandes con casas de teja; en el centro, el parque con la estación del gusanito;
+  // redondeles en las cuatro esquinas del parque y en otras cuatro esquinas del pueblo.
   const paso = C.bloque + C.calle;
   const ANCHO = C.cols * C.bloque + (C.cols + 1) * C.calle;
   const ALTO = C.filas * C.bloque + (C.filas + 1) * C.calle;
-  const PLAZA = { i: 2, j: 2 };
+  const esquina = (i, j) => ({ x: C.calle / 2 + i * paso, y: C.calle / 2 + j * paso });
+  const PARQUE = { i: 2, j: 2 };
+  const redondeles = [[2, 2], [3, 2], [2, 3], [3, 3], [1, 1], [4, 1], [1, 4], [4, 4]].map(([i, j]) => ({ ...esquina(i, j), R: C.redondel, isla: C.isla }));
   const bloques = [];
-  const obstaculosRedondos = []; // kiosco y árboles de la plaza
   for (let j = 0; j < C.filas; j++) {
     for (let i = 0; i < C.cols; i++) {
       const x = C.calle + i * paso, y = C.calle + j * paso;
-      const esPlaza = i === PLAZA.i && j === PLAZA.j;
-      const b = { x, y, w: C.bloque, h: C.bloque, plaza: esPlaza, casas: [] };
-      if (!esPlaza) {
-        // 3×3 lotes: el del centro es patio con árbol
-        const l = C.bloque / 3;
-        for (let a = 0; a < 3; a++) for (let c = 0; c < 3; c++) {
-          if (a === 1 && c === 1) { b.patio = { x: x + l, y: y + l, w: l, h: l }; continue; }
-          b.casas.push({
-            x: x + c * l + 4, y: y + a * l + 4, w: l - 8, h: l - 8,
-            teja: ['#B5543A', '#C96A43', '#A9472F', '#D07A4E'][(rnd() * 4) | 0],
-            horiz: rnd() < 0.5,
-          });
-        }
-        bloques.push(b);
-      } else {
-        b.plaza = true;
-        PLAZA.b = b;
-        const cx = x + C.bloque / 2, cy = y + C.bloque / 2;
-        PLAZA.cx = cx; PLAZA.cy = cy;
-        obstaculosRedondos.push({ x: cx, y: cy, r: 46, tipo: 'kiosco' });
-        for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-          obstaculosRedondos.push({ x: cx + dx * 150, y: cy + dy * 150, r: 22, tipo: 'arbol' });
+      const b = { x, y, w: C.bloque, h: C.bloque, casas: [], cortes: [] };
+      // los redondeles de sus esquinas le comen un pedazo redondo
+      for (const r of redondeles) if (Math.abs(r.x - (x + b.w / 2)) < b.w && Math.abs(r.y - (y + b.h / 2)) < b.h) b.cortes.push(r);
+      if (i === PARQUE.i && j === PARQUE.j) { b.parque = true; PARQUE.b = b; PARQUE.cx = x + b.w / 2; PARQUE.cy = y + b.h / 2; }
+      else {
+        // 4×4 lotes: los del centro son patios con árboles
+        const l = C.bloque / 4;
+        b.patios = [];
+        for (let a = 0; a < 4; a++) for (let c = 0; c < 4; c++) {
+          const lote = { x: x + c * l + 4, y: y + a * l + 4, w: l - 8, h: l - 8 };
+          if (a > 0 && a < 3 && c > 0 && c < 3) { b.patios.push(lote); continue; }
+          const comida = b.cortes.some((r) => Math.hypot(r.x - clamp(r.x, lote.x, lote.x + lote.w), r.y - clamp(r.y, lote.y, lote.y + lote.h)) < r.R + 18);
+          if (comida) continue;
+          b.casas.push({ ...lote, teja: ['#B5543A', '#C96A43', '#A9472F', '#D07A4E'][(rnd() * 4) | 0], horiz: rnd() < 0.5 });
         }
       }
+      bloques.push(b);
     }
   }
-  const enPlaza = (x, y) => {
-    const b = PLAZA.b;
-    return x > b.x - 30 && x < b.x + b.w + 30 && y > b.y - 30 && y < b.y + b.h + 30;
-  };
+  const enRedondel = (x, y, m = 0) => redondeles.some((r) => Math.hypot(x - r.x, y - r.y) < r.R + m);
 
-  // Sitios posibles para las paradas: a media cuadra, pegadas a la vereda
-  const sitiosParada = [];
-  for (const b of bloques) {
-    const o = 34;
-    sitiosParada.push({ x: b.x + b.w / 2, y: b.y - o, ang: 0 });
-    sitiosParada.push({ x: b.x + b.w / 2, y: b.y + b.h + o, ang: Math.PI });
-    sitiosParada.push({ x: b.x - o, y: b.y + b.h / 2, ang: -Math.PI / 2 });
-    sitiosParada.push({ x: b.x + b.w + o, y: b.y + b.h / 2, ang: Math.PI / 2 });
-  }
+  // La estación: en la calle de abajo del parque, pegada a su vereda. El gusanito arranca ahí,
+  // mirando hacia la derecha, y la gente hace fila en la vereda del parque.
+  const ESTACION = { x: PARQUE.cx, y: PARQUE.b.y + PARQUE.b.h + 40, ang: 0 };
 
   // Banderines: cruzan algunas calles
   const banderines = [];
@@ -155,21 +143,21 @@
   }
 
   function reiniciar() {
-    const x0 = C.calle / 2, y0 = C.calle + paso * 3 + C.bloque / 2;
+    // estacionado en la estación del parque, mirando hacia la derecha
+    const x0 = ESTACION.x + 70, y0 = ESTACION.y + 16;
     S = {
-      t: C.tiempo, plata: 0, felices: 0, asustados: 0, caidos: 0, choques: 0,
+      t: C.fiesta, plata: 0, ganado: 0, viajes: 0, felices: 0, asustados: 0, caidos: 0, choques: 0, seFueron: 0,
       corriendo: false, fin: false,
-      cab: { x: x0, y: y0, ang: -Math.PI / 2, v: 0, giro: 0, golpe: 0, enfriar: 0 },
-      vagones: [], paradas: [], caminantes: [], volando: [], textos: [], chispas: [], anuncios: [],
-      cam: { x: x0, y: y0, ang: -Math.PI / 2 }, parando: 0, avisoT: 0, sustoT: 0, ladridoT: 0, reponer: [],
-      nivel: 1, dif: nivelDe(1), felicesNivel: 0, guia: 0,
+      cab: { x: x0, y: y0, ang: 0, v: 0, giro: 0, golpe: 0, enfriar: 0 },
+      vagones: [], caminantes: [], volando: [], textos: [], chispas: [], anuncios: [], seVan: [],
+      cam: { x: x0, y: y0, ang: 0 }, parando: 0, avisoT: 0, sustoT: 0, ladridoT: 0,
+      dif: nivelDe(2),
+      // vuelta: segundos que le quedan a la vuelta con los pasajeros (null = no hay vuelta en curso)
+      vuelta: null, avisos: {}, primera: true,
+      est: { carga: 0, t: 0, llegaT: 0, fila: [] },
     };
     for (let k = 0; k < S.dif.vagones; k++) agregarVagon();
-    // la primera parada queda justo delante, en la misma calle, con gente suficiente para pasar el nivel 1
-    const primera = sitiosParada.find((s) => Math.abs(s.x - (C.calle - 34)) < 1 && Math.abs(s.y - (C.calle + paso * 2 + C.bloque / 2)) < 1);
-    nuevaParada(primera, 4);
-    S.paradas[0].guia = true;
-    for (let k = 1; k < C.paradasActivas; k++) nuevaParada();
+    for (let k = 0; k < 12; k++) S.est.fila.push(nuevoPasajero());
     ajustarCaminantes();
     actualizarHud(true);
   }
@@ -183,22 +171,6 @@
       : { x: S.cab.x - Math.cos(ang) * C.cabezaL / 2, y: S.cab.y - Math.sin(ang) * C.cabezaL / 2 };
     const d = C.barra + C.vagonL / 2;
     S.vagones.push(nuevoVagon(ref.x - Math.cos(ang) * d, ref.y - Math.sin(ang) * d, ang, n));
-  }
-
-  function nuevaParada(sitio, cuantos) {
-    const ocupadas = S.paradas;
-    let mejor = sitio || null;
-    for (let intento = 0; !sitio && intento < 30; intento++) {
-      const s = elige(sitiosParada);
-      const lejos = Math.hypot(s.x - S.cab.x, s.y - S.cab.y) > 500;
-      const libre = ocupadas.every((p) => Math.hypot(p.x - s.x, p.y - s.y) > 400);
-      if (lejos && libre) { mejor = s; break; }
-      mejor = s;
-    }
-    const gente = [];
-    const n = cuantos || 2 + ((Math.random() * 5) | 0);
-    for (let k = 0; k < n; k++) gente.push(nuevoPasajero());
-    S.paradas.push({ ...mejor, gente, carga: 0, t: 0, nueva: 1 });
   }
 
   function ajustarCaminantes() {
@@ -258,56 +230,49 @@
   }
 
   // ─── Física ────────────────────────────────────────────────────────
-  function chocaRect(o, r, rect) {
-    const px = clamp(o.x, rect.x, rect.x + rect.w), py = clamp(o.y, rect.y, rect.y + rect.h);
-    let dx = o.x - px, dy = o.y - py;
-    let d = Math.hypot(dx, dy);
-    if (d >= r) return null;
-    if (d === 0) { // adentro: sal por el borde más cercano
-      const izq = o.x - rect.x, der = rect.x + rect.w - o.x, arr = o.y - rect.y, aba = rect.y + rect.h - o.y;
-      const m = Math.min(izq, der, arr, aba);
-      if (m === izq) return { nx: -1, ny: 0, p: izq + r };
-      if (m === der) return { nx: 1, ny: 0, p: der + r };
-      if (m === arr) return { nx: 0, ny: -1, p: arr + r };
-      return { nx: 0, ny: 1, p: aba + r };
-    }
-    return { nx: dx / d, ny: dy / d, p: r - d };
+  // Lo sólido se describe con su distancia con signo (negativa adentro): cuadras con las esquinas
+  // comidas por los redondeles, islas de los redondeles y el borde del pueblo.
+  function sdBloque(b, x, y) {
+    const qx = Math.abs(x - (b.x + b.w / 2)) - b.w / 2, qy = Math.abs(y - (b.y + b.h / 2)) - b.h / 2;
+    let d = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0);
+    for (const r of b.cortes) d = Math.max(d, r.R - Math.hypot(x - r.x, y - r.y));
+    return d;
   }
-  function chocaCirc(o, r, c) {
-    const dx = o.x - c.x, dy = o.y - c.y, d = Math.hypot(dx, dy) || 1;
-    if (d >= r + c.r) return null;
-    return { nx: dx / d, ny: dy / d, p: r + c.r - d };
+  function sdMundo(x, y, hasta = Infinity) {
+    let d = Math.min(x, y, ANCHO - x, ALTO - y);
+    for (const b of bloques) {
+      // descarte rápido: si la caja ya está más lejos que lo encontrado, no hace falta más
+      const qx = Math.abs(x - (b.x + b.w / 2)) - b.w / 2, qy = Math.abs(y - (b.y + b.h / 2)) - b.h / 2;
+      if (Math.max(qx, qy) > Math.min(d, hasta)) continue;
+      d = Math.min(d, sdBloque(b, x, y));
+    }
+    for (const r of redondeles) d = Math.min(d, Math.hypot(x - r.x, y - r.y) - r.isla);
+    return d;
   }
   // Empuja el círculo fuera de lo sólido; devuelve la normal del golpe más fuerte
   function resolver(o, r) {
     if (C.fantasma) return null; // solo para calibrar desde la consola
     let peor = null;
-    const prueba = (h) => { if (h) { o.x += h.nx * h.p; o.y += h.ny * h.p; if (!peor || h.p > peor.p) peor = h; } };
-    for (const b of bloques) {
-      if (Math.abs(o.x - (b.x + b.w / 2)) > b.w / 2 + r + 2 || Math.abs(o.y - (b.y + b.h / 2)) > b.h / 2 + r + 2) continue;
-      prueba(chocaRect(o, r, b));
+    for (let it = 0; it < 3; it++) {
+      const d = sdMundo(o.x, o.y, r + 2);
+      if (d >= r) break;
+      const e = 0.75;
+      let nx = sdMundo(o.x + e, o.y, r + 4) - sdMundo(o.x - e, o.y, r + 4);
+      let ny = sdMundo(o.x, o.y + e, r + 4) - sdMundo(o.x, o.y - e, r + 4);
+      const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+      const p = r - d;
+      o.x += nx * p; o.y += ny * p;
+      if (!peor || p > peor.p) peor = { nx, ny, p };
     }
-    for (const c of obstaculosRedondos) prueba(chocaCirc(o, r, c));
-    // bordes del pueblo
-    if (o.x < r) prueba({ nx: 1, ny: 0, p: r - o.x });
-    if (o.y < r) prueba({ nx: 0, ny: 1, p: r - o.y });
-    if (o.x > ANCHO - r) prueba({ nx: -1, ny: 0, p: o.x - (ANCHO - r) });
-    if (o.y > ALTO - r) prueba({ nx: 0, ny: -1, p: o.y - (ALTO - r) });
     return peor;
   }
-
-  // ¿hay algo sólido (casa, kiosco, árbol, borde) a menos de m de este punto?
-  function solido(x, y, m) {
-    if (x < m || y < m || x > ANCHO - m || y > ALTO - m) return true;
-    for (const b of bloques) if (x > b.x - m && x < b.x + b.w + m && y > b.y - m && y < b.y + b.h + m) return true;
-    for (const o of obstaculosRedondos) if (Math.hypot(x - o.x, y - o.y) < o.r + m) return true;
-    return false;
-  }
+  // ¿hay algo sólido a menos de m de este punto?
+  const solido = (x, y, m) => sdMundo(x, y, m + 1) < m;
   const vuelta = (a) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 
   // Ayuda al manejar, más fuerte en los primeros niveles (A = S.dif.asist):
   //  · si la trompa va a dar contra algo, se desvía hacia el lado libre y frena un poco
-  //  · sin tocar ◀ ▶, se endereza con la calle y se va al centro (en la plaza no, para dar vueltas)
+  //  · sin tocar ◀ ▶, se endereza con la calle y se va al centro (en los redondeles no, para dar vueltas)
   function ayudar(k, meta, dt) {
     const A = S.dif.asist;
     if (A <= 0 || k.v < 30 || C.fantasma) return;
@@ -320,7 +285,7 @@
       k.v = Math.max(70, k.v - C.freno * 0.6 * A * dt);
       return;
     }
-    if (meta !== 0 || enPlaza(k.x, k.y)) return;
+    if (meta !== 0 || enRedondel(k.x, k.y, 70)) return;
     const eje = Math.round(k.ang / (Math.PI / 2)) * (Math.PI / 2);
     if (Math.abs(vuelta(eje - k.ang)) > 0.8) return;
     const hx = Math.cos(eje), hy = Math.sin(eje);
@@ -337,14 +302,14 @@
     // con la trompa pegada a una pared no acelera contra ella: así hay tiempo de girar y salir
     const pegado = !C.fantasma && solido(k.x + Math.cos(k.ang) * (C.cabezaL / 2 + 6), k.y + Math.sin(k.ang) * (C.cabezaL / 2 + 6), 4);
     let vMax = pegado ? Math.min(S.dif.vMax, 40) : S.dif.vMax;
-    if (S.dif.asist > 0 && S.vagones.some((v) => v.asientos.includes(null))) {
-      for (const p of S.paradas) {
-        if (!p.gente.length || p.carga < 0) continue;
-        const rx = p.x - k.x, ry = p.y - k.y, d = Math.hypot(rx, ry);
-        if (d < 190 && rx * Math.cos(k.ang) + ry * Math.sin(k.ang) > -40) vMax = Math.min(vMax, S.dif.vMax * (1 - 0.6 * S.dif.asist));
-      }
+    // con ayuda, afloja al acercarse a la estación (para que sea fácil parar ahí)
+    if (S.dif.asist > 0 && S.est.carga >= 0) {
+      const rx = ESTACION.x - k.x, ry = ESTACION.y - k.y, d = Math.hypot(rx, ry);
+      if (d < 230 && rx * Math.cos(k.ang) + ry * Math.sin(k.ang) > -40) vMax = Math.min(vMax, S.dif.vMax * (1 - 0.55 * S.dif.asist));
     }
-    if (entrada.freno) k.v = Math.max(0, k.v - C.freno * dt);
+    // en la estación se queda quieto mientras baja y sube la gente (aunque ya no frenes)
+    const subiendo = S.parando && S.est.carga > 0 && S.est.carga < 0.6;
+    if (entrada.freno || subiendo) k.v = Math.max(0, k.v - C.freno * dt);
     else if (k.v < vMax) k.v = Math.min(vMax, k.v + C.acel * dt * (k.v < 0 ? 3 : 1));
     else k.v = Math.max(vMax, k.v - C.freno * 0.3 * dt);
     // gira menos cuando va lento, como un carro de verdad, pero nunca nada: parado también puede enderezar
@@ -433,9 +398,10 @@
 
   // ─── Pasajeros: se divierten con el meneo, se asustan con el latigazo ─
   function pasajeros(dt) {
-    const plaza = enPlaza(S.cab.x, S.cab.y) ? 2 : 1;
+    const extra = enRedondel(S.cab.x, S.cab.y, 30) ? 1.5 : 1; // dar vueltas en un redondel divierte más
     const lento = Math.abs(S.cab.v) < 30 && S.parando <= 0;
     const d = S.dif;
+    const tarde = S.vuelta !== null && S.vuelta < 0;
     S.avisoT -= dt;
     for (const v of S.vagones) {
       const e = v.g;
@@ -445,14 +411,14 @@
         p.t += dt;
         if (e > C.divDesde) {
           const tramo = Math.min(e, C.divLleno, d.miedo) - C.divDesde;
-          p.div += tramo / (C.divLleno - C.divDesde) * C.ritmoDiv * d.ritmo * plaza * dt;
-        } else if (lento) p.div -= 0.015 * dt; // aburrido
+          p.div += tramo / (C.divLleno - C.divDesde) * C.ritmoDiv * d.ritmo * extra * dt;
+        } else p.div -= (lento ? 0.04 : 0.025) * dt; // sin meneo se aburren (y parados, más)
+        if (tarde) p.div -= 0.05 * dt;          // ya quieren bajarse
         if (e > d.miedo) p.miedo += (e - d.miedo) / 250 * dt;
         else p.miedo -= 0.04 * dt;
         p.div = clamp(p.div, 0, 1); p.miedo = clamp(p.miedo, 0, 1.2);
         if (!p.feliz && p.div >= 1 && p.miedo < 1) {
           p.feliz = true; texto(v.x, v.y - 30, elige(FRASES_DIV), '#F2E14B', 1.3); confeti(v.x, v.y, 18); sonar('feliz');
-          if (S.guia === 1) { S.guia = 2; anunciar('¡Ya están felices!', '#F2E14B', 4); anunciar('Llévalos a otra parada para que paguen', '#fff', 4, true); }
         }
         if (!p.asustado && p.miedo >= 1) { p.asustado = true; texto(v.x, v.y - 30, elige(FRASES_MIEDO), '#fff', 1.3); }
       }
@@ -478,59 +444,90 @@
     }
   }
 
-  function paradas(dt) {
-    const k = S.cab;
-    S.parando = 0;
-    for (let n = S.reponer.length - 1; n >= 0; n--) if ((S.reponer[n] -= dt) <= 0) { S.reponer.splice(n, 1); nuevaParada(); }
-    for (let n = S.paradas.length - 1; n >= 0; n--) {
-      const p = S.paradas[n];
-      p.t += dt; p.nueva = Math.max(0, p.nueva - dt * 2);
-      const cerca = Math.hypot(p.x - k.x, p.y - k.y) < 120 || S.vagones.slice(0, 2).some((v) => Math.hypot(p.x - v.x, p.y - v.y) < 80);
-      if (cerca && Math.abs(k.v) < 40) {
-        S.parando = 1;
-        p.carga += dt;
-        if (p.carga >= 0.5) { intercambio(p); p.carga = -99; }
-      } else if (p.carga > 0) p.carga = Math.max(0, p.carga - dt);
-      if (p.carga < -1 && !cerca) p.carga = 0; // ya puedes volver a parar
-      if (p.gente.length === 0 && p.carga >= 0) { S.paradas.splice(n, 1); S.reponer.push(1.5); } // otra parada en 1,5 s de juego
+  const capacidad = () => S.vagones.length * C.asientos;
+  const aBordo = () => S.vagones.reduce((n, v) => n + v.asientos.filter(Boolean).length, 0);
+  const duracionVuelta = () => C.vuelta + 4 * (S.vagones.length - 2);
+
+  // La estación: llega gente a la fila; si el gusanito se demora, se cansan y se van.
+  // Al parar ahí, todos se bajan y pagan según lo felices que vienen, y sube la siguiente tanda.
+  function estacion(dt) {
+    const k = S.cab, e = S.est;
+    e.t += dt;
+    // llega gente: más o menos una tanda completa cada 30 s
+    e.llegaT -= dt;
+    if (e.llegaT <= 0 && e.fila.length < C.filaMax) { e.fila.push(nuevoPasajero()); e.llegaT = azar(0.7, 1.3) * 30 / capacidad(); }
+    // la vuelta corre; cuando se acaba, avisos y la fila se empieza a ir
+    if (S.vuelta !== null) {
+      S.vuelta -= dt;
+      if (S.vuelta <= 12 && !S.avisos.regresa) { S.avisos.regresa = true; anunciar('¡Regresa a la estación!', '#F2E14B', 3.5); anunciar('Sigue la flecha amarilla', '#fff', 3.5, true); }
+      if (S.vuelta < 0) {
+        if (!S.avisos.tarde) { S.avisos.tarde = true; anunciar('¡Se te hace tarde!', '#FF8A7A', 3.5); anunciar('La gente de la fila se está yendo', '#fff', 3.5, true); sonar('tarde'); }
+        e.vaT = (e.vaT ?? 1.5) - dt;
+        if (e.vaT <= 0 && e.fila.length) {
+          e.vaT = 1.6;
+          const p = e.fila.shift(); S.seFueron++;
+          S.seVan.push({ p, x: ESTACION.x - 40, y: PARQUE.b.y + PARQUE.b.h - 4, t: 0, dir: Math.random() < 0.5 ? -1 : 1 });
+          texto(ESTACION.x - 60, ESTACION.y - 50, elige(['¡Ya no espero!', '¡Me voy!', '¡Qué demora!', 'Mejor otro día']), '#FFB3A8', 1.4);
+        }
+      }
     }
+    // ¿paró en la estación?
+    const cerca = Math.hypot(ESTACION.x - k.x, ESTACION.y - k.y) < 140 || S.vagones.slice(0, 2).some((v) => Math.hypot(ESTACION.x - v.x, ESTACION.y - v.y) < 90);
+    S.parando = 0;
+    if (cerca && Math.abs(k.v) < 40) {
+      S.parando = 1;
+      e.carga += dt;
+      if (e.carga >= 0.6) { llegada(); e.carga = -99; }
+    } else if (e.carga > 0) e.carga = Math.max(0, e.carga - dt);
+    if (e.carga < -1 && !cerca) e.carga = 0; // ya salió: la próxima vez que pare, cuenta
+    for (let n = S.seVan.length - 1; n >= 0; n--) { const q = S.seVan[n]; q.t += dt; q.x += q.dir * 60 * dt; if (q.t > 3) S.seVan.splice(n, 1); }
   }
 
-  function intercambio(p) {
-    let cobro = 0, bajan = 0;
+  function llegada() {
+    S.anuncios.length = 0; // lo que pasa al llegar reemplaza los avisos de la vuelta
+    // 1 · se bajan todos y pagan según su alegría
+    let cobro = 0, bajan = 0, suma = 0;
     for (const v of S.vagones) for (let s = 0; s < v.asientos.length; s++) {
       const q = v.asientos[s];
       if (!q) continue;
-      if (q.feliz) { const pago = 1 + (q.miedo < 0.3 ? 0.25 : 0); cobro += pago; S.felices++; S.felicesNivel++; v.asientos[s] = null; bajan++; }
-      else if (q.asustado) { S.asustados++; v.asientos[s] = null; bajan++; }
+      v.asientos[s] = null; bajan++;
+      if (q.asustado) { S.asustados++; continue; } // asustados no pagan
+      const f = clamp(q.div, 0, 1);
+      suma += f;
+      let pago = 0.25 + 1.0 * f;
+      if (f >= 0.9) { S.felices++; if (q.miedo < 0.3) pago += 0.25; } // propina
+      cobro += Math.round(pago * 20) / 20;
     }
+    if (bajan) {
+      S.viajes++;
+      S.plata += cobro; S.ganado += cobro;
+      const alegria = Math.round((suma / bajan) * 100);
+      texto(ESTACION.x, ESTACION.y - 60, '+' + plata(cobro), '#8BD43B', 2);
+      anunciar(alegria >= 85 ? '¡Bajaron felices!' : alegria >= 50 ? 'Bajaron contentos' : 'Bajaron aburridos', alegria >= 50 ? '#8BD43B' : '#FFB3A8', 3);
+      anunciar(`Alegría ${alegria} % · ${plata(cobro)}`, '#fff', 3, true);
+      sonar(cobro > 0 ? 'plata' : 'sube');
+    }
+    // 2 · con la plata ganada se engancha otro vagón
+    let nuevos = 0;
+    while (S.vagones.length < C.vagonesMax && S.ganado >= nivelDe(S.vagones.length + 1).ganado) { agregarVagon(); nuevos++; }
+    if (nuevos) {
+      S.dif = nivelDe(S.vagones.length);
+      ajustarCaminantes();
+      anunciar(nuevos > 1 ? `¡${nuevos} vagones nuevos!` : '¡Vagón nuevo!', '#F2E14B', 3.5);
+      anunciar(`Ahora caben ${capacidad()} · la cola es más brava`, '#fff', 3.5, true);
+      confeti(S.cab.x, S.cab.y, 40);
+      sonar('nivel');
+    }
+    // 3 · sube la siguiente tanda
     let suben = 0;
     for (const v of S.vagones) for (let s = 0; s < v.asientos.length; s++) {
-      if (!v.asientos[s] && p.gente.length) { v.asientos[s] = p.gente.pop(); suben++; }
+      if (!v.asientos[s] && S.est.fila.length) { v.asientos[s] = S.est.fila.shift(); suben++; }
     }
-    S.plata += cobro;
-    if (cobro > 0) { texto(p.x, p.y - 40, '+' + plata(cobro), '#8BD43B', 1.6); sonar('plata'); }
-    else if (suben) sonar('sube');
-    if (bajan && !cobro) texto(p.x, p.y - 40, 'Se bajaron asustados', '#fff', 1.4);
-    if (suben) texto(p.x, p.y - 20, `Subieron ${suben}`, '#fff', 1.2);
-    else if (!bajan) texto(p.x, p.y - 20, p.gente.length ? 'No hay asientos' : 'Ya no hay nadie', '#fff', 1.2);
-    if (p.guia && suben) { p.guia = false; S.guia = 1; anunciar('¡Ahora haz zigzag! ◀ ▶', '#F2E14B', 4); anunciar('El meneo los divierte', '#fff', 4, true); }
-    while (S.felicesNivel >= S.dif.meta) subirNivel();
-  }
-
-  // Nivel nuevo: más tiempo, el gusanito crece y todo se pone más bravo
-  function subirNivel() {
-    S.felicesNivel -= S.dif.meta;
-    S.nivel++;
-    S.dif = nivelDe(S.nivel);
-    S.t += S.dif.extra;
-    while (S.vagones.length < Math.min(S.dif.vagones, C.vagonesMax)) agregarVagon();
-    ajustarCaminantes();
-    const k = S.cab;
-    anunciar(`¡Nivel ${S.nivel}! +${S.dif.extra} s`, '#F2E14B', 3);
-    anunciar('El gusanito creció: ahora va más rápido', '#fff', 3, true);
-    confeti(k.x, k.y, 40);
-    sonar('nivel');
+    if (suben) {
+      S.vuelta = duracionVuelta(); S.avisos = {};
+      texto(ESTACION.x, ESTACION.y - 30, `Subieron ${suben}`, '#fff', 1.4);
+      if (S.primera) { S.primera = false; anunciar('¡Dales una buena vuelta!', '#F2E14B', 4.5); anunciar('Zigzag y redondeles: el meneo los pone felices', '#fff', 4.5, true); }
+    } else { S.vuelta = null; texto(ESTACION.x, ESTACION.y - 30, 'No hay nadie en la fila', '#fff', 1.4); }
   }
 
   function caminantes(dt) {
@@ -545,7 +542,11 @@
       c.x += dx / d * c.v * dt; c.y += dy / d * c.v * dt;
       c.dx = dx / d; c.dy = dy / d;
       // ¿lo topa la cabeza?
-      const ox = c.x + (c.dy || 0) * c.off, oy = c.y - (c.dx || 0) * c.off;
+      let ox = c.x + (c.dy || 0) * c.off, oy = c.y - (c.dx || 0) * c.off;
+      for (const r of redondeles) { // rodean la isla del redondel
+        const rx = ox - r.x, ry = oy - r.y, rd = Math.hypot(rx, ry) || 1;
+        if (rd < r.isla + 30) { ox = r.x + rx / rd * (r.isla + 30); oy = r.y + ry / rd * (r.isla + 30); }
+      }
       c.px = ox; c.py = oy;
       if (Math.hypot(ox - k.x, oy - k.y) < 34 + C.cabezaA / 2 && k.enfriar <= 0 && Math.abs(k.v) > 30) {
         k.v = 0;
@@ -679,7 +680,7 @@
     if (S.corriendo) {
       const sub = 3, h = dt / sub;
       for (let s = 0; s < sub; s++) { moverCabeza(h); moverVagones(h); }
-      pasajeros(dt); paradas(dt); caminantes(dt);
+      pasajeros(dt); estacion(dt); caminantes(dt);
       S.t -= real;
       if (S.t <= 0) terminar();
       actualizarHud();
@@ -746,18 +747,21 @@
     for (let j = 0; j <= C.filas; j++) { const y = C.calle / 2 + j * paso; ctx.moveTo(0, y); ctx.lineTo(ANCHO, y); }
     ctx.stroke(); ctx.setLineDash([]);
 
-    // cuadras
+    // cuadras (el parque va aparte)
     for (const b of bloques) {
-      if (!ve(b.x - 14, b.y - 14, b.w + 28, b.h + 28)) continue;
+      if (b.parque || !ve(b.x - 14, b.y - 14, b.w + 28, b.h + 28)) continue;
       ctx.fillStyle = '#CFC6B4'; rr(b.x - 14, b.y - 14, b.w + 28, b.h + 28, 12); ctx.fill();
       ctx.fillStyle = '#F1ECE2'; ctx.fillRect(b.x, b.y, b.w, b.h);
-      if (b.patio) { ctx.fillStyle = '#5E9E4C'; ctx.fillRect(b.patio.x + 6, b.patio.y + 6, b.patio.w - 12, b.patio.h - 12); ctx.fillStyle = '#2F6B33'; ctx.beginPath(); ctx.arc(b.patio.x + b.patio.w / 2, b.patio.y + b.patio.h / 2, 30, 0, 7); ctx.fill(); }
+      ctx.fillStyle = '#5E9E4C';
+      for (const p of b.patios) ctx.fillRect(p.x, p.y, p.w, p.h);
+      ctx.fillStyle = '#2F6B33';
+      for (const p of b.patios) { ctx.beginPath(); ctx.arc(p.x + p.w / 2, p.y + p.h / 2, 26, 0, 7); ctx.fill(); }
       for (const c of b.casas) teja(c);
     }
-    plaza(ve);
-
-    // paradas
-    for (const p of S.paradas) if (ve(p.x - 80, p.y - 80, 160, 160)) parada(p);
+    parque(ve);
+    // los redondeles se comen la esquina de las cuadras
+    for (const r of redondeles) if (ve(r.x - r.R - 20, r.y - r.R - 20, 2 * r.R + 40, 2 * r.R + 40)) redondel(r);
+    if (ve(ESTACION.x - 400, ESTACION.y - 120, 800, 240)) estacionDibujo();
     // caminantes
     for (const c of S.caminantes) if (c.px !== undefined && ve(c.px - 40, c.py - 40, 80, 80)) caminante(c);
     // caídos en el suelo
@@ -786,10 +790,11 @@
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const fuente = Math.round(clamp(22 * zoom, 16, 28));
     ctx.font = `900 ${fuente}px Montserrat, "Arial Black", sans-serif`;
-    for (const p of S.paradas) if (p.guia) {
-      const q = aPantalla(p.x, p.y), y = q.y - 60 - (quieto ? 0 : Math.abs(Math.sin(p.t * 3)) * 8);
-      ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(30,15,40,.85)'; ctx.strokeText('¡Frena aquí!', q.x, y);
-      ctx.fillStyle = '#F2E14B'; ctx.fillText('¡Frena aquí!', q.x, y);
+    // de regreso, la estación dice dónde parar
+    if (S.vuelta !== null && S.vuelta <= 12 && S.est.carga >= 0) {
+      const q = aPantalla(ESTACION.x, ESTACION.y), y = q.y - 70 - (quieto ? 0 : Math.abs(Math.sin(S.est.t * 3)) * 8);
+      ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(30,15,40,.85)'; ctx.strokeText('¡Para aquí!', q.x, y);
+      ctx.fillStyle = '#F2E14B'; ctx.fillText('¡Para aquí!', q.x, y);
     }
     const puestos = []; // para que dos textos no caigan uno encima del otro
     for (const t of S.textos) {
@@ -803,7 +808,7 @@
     }
     ctx.globalAlpha = 1;
     // avisos grandes, apilados arriba al centro (debajo del HUD)
-    let ay = Math.max(150, H * 0.24);
+    let ay = Math.max(H * 0.24, (cifras.getBoundingClientRect().bottom || 0) + 34);
     for (const t of S.anuncios) {
       const tam = t.chico ? Math.round(fuente * 0.7) : Math.round(fuente * 1.25);
       ctx.font = `900 ${tam}px Montserrat, "Arial Black", sans-serif`;
@@ -831,62 +836,81 @@
     ctx.stroke();
   }
 
-  function plaza(ve) {
-    const b = PLAZA.b;
+  // El parque: pasto, caminos, árboles y el kiosco; la estación queda en su lado de abajo
+  function parque(ve) {
+    const b = PARQUE.b;
     if (!ve(b.x - 14, b.y - 14, b.w + 28, b.h + 28)) return;
-    ctx.fillStyle = '#C9B99A'; rr(b.x - 14, b.y - 14, b.w + 28, b.h + 28, 18); ctx.fill();
-    // adoquín
-    ctx.strokeStyle = 'rgba(0,0,0,.08)'; ctx.lineWidth = 1; ctx.beginPath();
-    for (let x = b.x; x < b.x + b.w; x += 24) { ctx.moveTo(x, b.y - 14); ctx.lineTo(x, b.y + b.h + 14); }
-    for (let y = b.y; y < b.y + b.h; y += 24) { ctx.moveTo(b.x - 14, y); ctx.lineTo(b.x + b.w + 14, y); }
-    ctx.stroke();
-    // jardines en las esquinas
-    ctx.fillStyle = '#5E9E4C';
-    for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { ctx.beginPath(); ctx.arc(PLAZA.cx + dx * 150, PLAZA.cy + dy * 150, 40, 0, 7); ctx.fill(); }
-    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 4; ctx.setLineDash([12, 10]);
-    ctx.beginPath(); ctx.arc(PLAZA.cx, PLAZA.cy, 110, 0, 7); ctx.stroke(); ctx.setLineDash([]);
-    for (const o of obstaculosRedondos) {
-      if (o.tipo === 'kiosco') {
-        ctx.fillStyle = '#F1ECE2'; ctx.beginPath(); ctx.arc(o.x, o.y, o.r + 6, 0, 7); ctx.fill();
-        // techo octogonal
-        ctx.fillStyle = '#1B5FAA'; ctx.beginPath();
-        for (let n = 0; n < 8; n++) { const a = n * Math.PI / 4 + Math.PI / 8; ctx.lineTo(o.x + Math.cos(a) * o.r, o.y + Math.sin(a) * o.r); }
-        ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = '#F2E14B'; ctx.lineWidth = 3; ctx.beginPath();
-        for (let n = 0; n < 8; n++) { const a = n * Math.PI / 4 + Math.PI / 8; ctx.moveTo(o.x, o.y); ctx.lineTo(o.x + Math.cos(a) * o.r, o.y + Math.sin(a) * o.r); }
-        ctx.stroke();
-        ctx.fillStyle = '#D6382B'; ctx.beginPath(); ctx.arc(o.x, o.y, 7, 0, 7); ctx.fill();
-      } else {
-        ctx.fillStyle = '#2F6B33'; ctx.beginPath(); ctx.arc(o.x, o.y, o.r + 10, 0, 7); ctx.fill();
-        ctx.fillStyle = '#3F8A40'; ctx.beginPath(); ctx.arc(o.x - 5, o.y - 5, o.r, 0, 7); ctx.fill();
-      }
+    ctx.fillStyle = '#CFC6B4'; rr(b.x - 14, b.y - 14, b.w + 28, b.h + 28, 18); ctx.fill();
+    ctx.fillStyle = '#5E9E4C'; ctx.fillRect(b.x, b.y, b.w, b.h);
+    // caminos en cruz y en anillo
+    ctx.strokeStyle = '#D9CCAE'; ctx.lineWidth = 26; ctx.lineCap = 'butt';
+    ctx.beginPath(); ctx.moveTo(b.x, PARQUE.cy); ctx.lineTo(b.x + b.w, PARQUE.cy); ctx.moveTo(PARQUE.cx, b.y); ctx.lineTo(PARQUE.cx, b.y + b.h); ctx.stroke();
+    ctx.beginPath(); ctx.arc(PARQUE.cx, PARQUE.cy, 150, 0, 7); ctx.stroke();
+    // árboles
+    for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) for (const k of [0.55, 0.85]) {
+      const x = PARQUE.cx + dx * b.w / 2 * k, y = PARQUE.cy + dy * b.h / 2 * (k === 0.55 ? 0.85 : 0.55);
+      ctx.fillStyle = '#2F6B33'; ctx.beginPath(); ctx.arc(x, y, 34, 0, 7); ctx.fill();
+      ctx.fillStyle = '#3F8A40'; ctx.beginPath(); ctx.arc(x - 6, y - 6, 24, 0, 7); ctx.fill();
     }
-    ctx.font = '900 20px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(36,21,15,.45)';
-    ctx.fillText('PLAZA · VUELTAS ×2', PLAZA.cx, b.y + 18);
+    // kiosco
+    const o = { x: PARQUE.cx, y: PARQUE.cy, r: 56 };
+    ctx.fillStyle = '#F1ECE2'; ctx.beginPath(); ctx.arc(o.x, o.y, o.r + 8, 0, 7); ctx.fill();
+    ctx.fillStyle = '#1B5FAA'; ctx.beginPath();
+    for (let n = 0; n < 8; n++) { const a = n * Math.PI / 4 + Math.PI / 8; ctx.lineTo(o.x + Math.cos(a) * o.r, o.y + Math.sin(a) * o.r); }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#F2E14B'; ctx.lineWidth = 3; ctx.beginPath();
+    for (let n = 0; n < 8; n++) { const a = n * Math.PI / 4 + Math.PI / 8; ctx.moveTo(o.x, o.y); ctx.lineTo(o.x + Math.cos(a) * o.r, o.y + Math.sin(a) * o.r); }
+    ctx.stroke();
+    ctx.fillStyle = '#D6382B'; ctx.beginPath(); ctx.arc(o.x, o.y, 8, 0, 7); ctx.fill();
+    ctx.font = '900 22px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(20,50,20,.55)';
+    ctx.fillText('PARQUE CENTRAL', PARQUE.cx, b.y + 30);
   }
 
-  function parada(p) {
-    const k = S.cab;
-    const s = 1 - p.nueva;
-    ctx.save(); ctx.translate(p.x, p.y);
-    // círculo pintado en la calle
-    const pulso = quieto ? 0 : Math.sin(p.t * 4) * 4;
-    ctx.strokeStyle = p.carga > 0 ? '#8BD43B' : '#F2E14B'; ctx.lineWidth = 5; ctx.setLineDash([10, 8]);
-    ctx.beginPath(); ctx.arc(0, 0, (70 + pulso) * s, 0, 7); ctx.stroke(); ctx.setLineDash([]);
-    if (p.carga > 0) { ctx.strokeStyle = '#8BD43B'; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(0, 0, 70, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, p.carga / 0.5)); ctx.stroke(); }
-    ctx.rotate(p.ang);
-    // la gente espera en la vereda (hacia "arriba" del ángulo, que es la cuadra)
-    const n = p.gente.length;
-    for (let i = 0; i < n; i++) {
-      const gx = (i - (n - 1) / 2) * 22, gy = 36 + (i % 2) * 8;
-      const brinco = quieto ? 0 : Math.abs(Math.sin(p.t * 6 + i)) * 3;
-      persona(gx, gy - brinco, p.gente[i], 1, 0, false, Math.hypot(k.x - p.x, k.y - p.y) < 400);
-    }
-    // letrero
-    ctx.fillStyle = '#24150F'; ctx.fillRect(-n * 11 - 18, 30, 4, 22);
-    ctx.fillStyle = '#F2E14B'; rr(-n * 11 - 34, 18, 36, 16, 4); ctx.fill();
-    ctx.fillStyle = '#24150F'; ctx.font = '800 9px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('PARE', -n * 11 - 16, 29);
+  // Redondel: calzada redonda, vereda que sigue la curva, carril pintado e isla con flores
+  function redondel(r) {
+    ctx.fillStyle = '#56565C'; ctx.beginPath(); ctx.arc(r.x, r.y, r.R, 0, 7); ctx.fill();
+    ctx.save(); ctx.beginPath();
+    for (const b of bloques) if (b.cortes.includes(r)) ctx.rect(b.x - 14, b.y - 14, b.w + 28, b.h + 28);
+    ctx.clip();
+    ctx.strokeStyle = '#CFC6B4'; ctx.lineWidth = 14; ctx.beginPath(); ctx.arc(r.x, r.y, r.R + 7, 0, 7); ctx.stroke();
     ctx.restore();
+    ctx.strokeStyle = 'rgba(242,225,75,.5)'; ctx.lineWidth = 3; ctx.setLineDash([22, 22]);
+    ctx.beginPath(); ctx.arc(r.x, r.y, (r.isla + r.R) / 2 + 6, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#CFC6B4'; ctx.beginPath(); ctx.arc(r.x, r.y, r.isla, 0, 7); ctx.fill();
+    ctx.fillStyle = '#5E9E4C'; ctx.beginPath(); ctx.arc(r.x, r.y, r.isla - 9, 0, 7); ctx.fill();
+    const flores = ['#E8458B', '#F2E14B', '#F6EBD3', '#D6382B', '#7E3592'];
+    for (let n = 0; n < 14; n++) { const a = n / 14 * Math.PI * 2; ctx.fillStyle = flores[n % flores.length]; ctx.beginPath(); ctx.arc(r.x + Math.cos(a) * (r.isla - 22), r.y + Math.sin(a) * (r.isla - 22), 6, 0, 7); ctx.fill(); }
+    // monumento
+    ctx.fillStyle = '#B8B2A6'; ctx.beginPath(); ctx.arc(r.x, r.y, 20, 0, 7); ctx.fill();
+    ctx.fillStyle = '#8F897E'; ctx.beginPath(); ctx.arc(r.x, r.y, 11, 0, 7); ctx.fill();
+  }
+
+  // La estación: bahía pintada en la calle, boletería y la fila de gente en la vereda del parque
+  function estacionDibujo() {
+    const e = S.est, x = ESTACION.x, y = ESTACION.y, k = S.cab;
+    ctx.save(); ctx.translate(x, y);
+    ctx.strokeStyle = e.carga > 0 ? '#8BD43B' : '#F2E14B'; ctx.lineWidth = 5; ctx.setLineDash([14, 10]);
+    rr(-170, -30, 340, 92, 16); ctx.stroke(); ctx.setLineDash([]);
+    if (e.carga > 0) { ctx.fillStyle = 'rgba(139,212,59,.35)'; rr(-170, -30, 340 * Math.min(1, e.carga / 0.6), 92, 16); ctx.fill(); }
+    ctx.font = '900 26px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(242,225,75,.55)'; ctx.fillText('ESTACIÓN', 0, 46);
+    ctx.restore();
+    // fila en la vereda del parque, hacia la izquierda de la boletería
+    const y0 = PARQUE.b.y + PARQUE.b.h - 12, cerca = Math.hypot(k.x - x, k.y - y) < 500;
+    e.fila.forEach((p, i) => {
+      const col = i % 16, fila = (i / 16) | 0;
+      const brinco = quieto ? 0 : Math.abs(Math.sin(e.t * 5 + i)) * 2.5;
+      persona(x - 40 - col * 19, y0 - fila * 20 - brinco, p, 0.95, 0, false, cerca);
+    });
+    for (const q of S.seVan) { ctx.globalAlpha = Math.max(0, 1 - q.t / 3); persona(q.x, q.y - q.t * 30, q.p, 0.95, 0, false, false); }
+    ctx.globalAlpha = 1;
+    // boletería con su letrero
+    const bx = x + 10, by = y0 - 34;
+    ctx.fillStyle = '#F1ECE2'; rr(bx, by, 56, 40, 6); ctx.fill();
+    for (let n = 0; n < 4; n++) { ctx.fillStyle = ['#E8458B', '#F2E14B', '#8BD43B', '#5FB4E6'][n]; ctx.fillRect(bx + n * 14, by - 8, 14, 10); }
+    ctx.fillStyle = '#E8458B'; rr(bx - 4, by + 12, 64, 18, 4); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = '900 11px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('GUSANITO', bx + 28, by + 21);
   }
 
   function persona(x, y, p, esc, rot, tumbado, saluda) {
@@ -1088,45 +1112,54 @@
     ctx.globalAlpha = 1;
   }
 
+  // Flecha hacia la estación cuando no se ve; parpadea cuando ya hay que volver
   function flechas() {
-    for (const p of S.paradas) {
-      const q = aPantalla(p.x, p.y);
-      if (q.x > 20 && q.x < W - 20 && q.y > 20 && q.y < H - 20) continue;
-      const a = Math.atan2(q.y - H * PIVOTE, q.x - W / 2);
-      const m = 46;
-      const ex = clamp(W / 2 + Math.cos(a) * W, m, W - m), ey = clamp(H / 2 + Math.sin(a) * H, m + 130, H - m - 120);
-      ctx.save(); ctx.translate(ex, ey); ctx.rotate(a);
-      ctx.fillStyle = '#F2E14B'; ctx.strokeStyle = '#24150F'; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-8, -12); ctx.lineTo(-3, 0); ctx.lineTo(-8, 12); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.restore();
-      ctx.fillStyle = '#fff'; ctx.font = '800 11px Montserrat, sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(p.gente.length + ' ☺', ex - Math.cos(a) * 26, ey - Math.sin(a) * 26 + 4);
-    }
+    const q = aPantalla(ESTACION.x, ESTACION.y);
+    if (q.x > 20 && q.x < W - 20 && q.y > 20 && q.y < H - 20) return;
+    const a = Math.atan2(q.y - H * PIVOTE, q.x - W / 2);
+    const m = 50;
+    const ex = clamp(W / 2 + Math.cos(a) * W, m, W - m), ey = clamp(H / 2 + Math.sin(a) * H, m + 140, H - m - 120);
+    const urge = S.vuelta !== null && S.vuelta <= 12;
+    const s = urge && !quieto ? 1 + Math.abs(Math.sin(S.est.t * 6)) * 0.25 : 1;
+    ctx.save(); ctx.translate(ex, ey); ctx.rotate(a); ctx.scale(s * 1.3, s * 1.3);
+    ctx.fillStyle = urge && S.vuelta < 0 ? '#FF8A7A' : '#F2E14B'; ctx.strokeStyle = '#24150F'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-8, -12); ctx.lineTo(-3, 0); ctx.lineTo(-8, 12); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = '#fff'; ctx.font = '800 12px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(30,15,40,.8)';
+    const t = 'Estación · ' + S.est.fila.length + ' en la fila', lx = clamp(ex - Math.cos(a) * 40, 70, W - 70), ly = ey - Math.sin(a) * 34;
+    ctx.strokeText(t, lx, ly); ctx.fillText(t, lx, ly);
   }
 
   // ─── HUD ───────────────────────────────────────────────────────────
-  const h = { tiempo: $('#h-tiempo'), plata: $('#h-plata'), gente: $('#h-gente'), alegria: $('#h-alegria'), nivel: $('#h-nivel'), meta: $('#h-meta') };
+  const h = { tiempo: $('#h-tiempo'), plata: $('#h-plata'), gente: $('#h-gente'), alegria: $('#h-alegria'), vuelta: $('#h-vuelta'), fila: $('#h-fila'), vagon: $('#h-vagon') };
   let hudCache = '';
   function actualizarHud(forzar) {
     const tt = Math.max(0, Math.ceil(S.t));
     let n = 0, cap = 0, div = 0;
     for (const v of S.vagones) for (const p of v.asientos) { cap++; if (p) { n++; div += p.div; } }
-    const clave = tt + '|' + S.plata.toFixed(2) + '|' + n + '/' + cap + '|' + Math.round(n ? (div / n) * 100 : 0) + '|' + S.nivel + '|' + S.felicesNivel;
+    const vt = S.vuelta === null ? null : Math.ceil(S.vuelta);
+    const clave = [tt, S.plata.toFixed(2), n, cap, Math.round(n ? (div / n) * 100 : 0), vt, S.est.fila.length, S.vagones.length].join('|');
     if (clave === hudCache && !forzar) return;
     hudCache = clave;
     h.tiempo.firstChild.nodeValue = Math.floor(tt / 60) + ':' + String(tt % 60).padStart(2, '0');
     h.plata.firstChild.nodeValue = plata(S.plata);
     h.gente.textContent = `${n}/${cap} a bordo`;
     h.alegria.style.width = (n ? (div / n) * 100 : 0) + '%';
-    h.nivel.textContent = 'Nivel ' + S.nivel;
-    h.meta.textContent = `${S.felicesNivel}/${S.dif.meta} felices`;
-    h.tiempo.classList.toggle('poco', tt <= 10);
+    const reloj = (x) => Math.floor(x / 60) + ':' + String(x % 60).padStart(2, '0');
+    h.vuelta.textContent = vt === null ? 'En la estación' : vt >= 0 ? 'Vuelta ' + reloj(vt) : '¡Tarde! ' + reloj(-vt);
+    h.vuelta.classList.toggle('poco', vt !== null && vt <= 12);
+    h.fila.textContent = S.est.fila.length + ' en la fila';
+    const sig = S.vagones.length < C.vagonesMax ? nivelDe(S.vagones.length + 1).ganado : null;
+    h.vagon.textContent = sig === null ? 'Gusanito completo' : `Otro vagón al juntar ${plata(sig)}`;
+    h.tiempo.classList.toggle('poco', tt <= 20);
   }
 
   // ─── Capas ─────────────────────────────────────────────────────────
   const capas = { inicio: $('#c-inicio'), pausa: $('#c-pausa'), fin: $('#c-fin') };
   let recordMem = 0;
   const hud = $('.hud-juego');
+  const cifras = $('.hud-juego__cifras');
   // Con una capa abierta el HUD queda inerte (ni foco ni clics) y el foco va al botón principal de la
   // capa; así Enter y Espacio siempre hacen lo que dice la capa, y no pausan ni apagan el sonido.
   function mostrar(cual) {
@@ -1146,9 +1179,9 @@
     try { localStorage.setItem('gusanito.record', recordMem); } catch { /* sin almacenamiento */ }
     const record = recordMem;
     $('#t-fin').textContent = plata(S.plata);
-    $('#fin-nivel').textContent = 'Llegaste al nivel ' + S.nivel;
-    $('#fin-frase').textContent = S.caidos > 2 ? 'La gente se divirtió… los que no salieron volando.' : S.nivel >= 6 ? '¡El mejor gusanito de las fiestas!' : S.nivel >= 3 ? 'Buena vuelta: la gente pide otra.' : S.felices ? 'Más zigzag y más paradas: cada nivel pide más gente feliz.' : 'Haz zigzag: la gente quiere sentir el meneo.';
-    $('#r-felices').textContent = S.felices; $('#r-asustados').textContent = S.asustados; $('#r-caidos').textContent = S.caidos;
+    $('#fin-frase').textContent = S.caidos > 2 ? 'La gente se divirtió… los que no salieron volando.' : S.vagones.length >= 7 ? '¡El mejor gusanito de las fiestas!' : S.seFueron > 8 ? 'Mucha gente se cansó de esperar: regresa a tiempo.' : S.vagones.length >= 4 ? 'Buena fiesta: la gente pide otra vuelta.' : 'Más zigzag y redondeles: la gente quiere sentir el meneo.';
+    $('#r-viajes').textContent = S.viajes; $('#r-felices').textContent = S.felices; $('#r-sefueron').textContent = S.seFueron;
+    $('#r-asustados').textContent = S.asustados; $('#r-caidos').textContent = S.caidos;
     $('#r-choques').textContent = S.choques; $('#r-vagones').textContent = S.vagones.length; $('#r-record').textContent = plata(record);
     mostrar('fin');
   }
@@ -1232,6 +1265,7 @@
         o.connect(g); g.connect(maestro); o.start(t + d); o.stop(t + d + 0.13);
       }
     }
+    if (cual === 'tarde') [7, 3, 0].forEach((n, i) => nota(semi(n), t + i * 0.16, 0.22, 'square', 0.07));
     if (cual === 'nivel') [0, 4, 7, 12, 16].forEach((n, i) => nota(semi(n + 12), t + i * 0.09, 0.25, 'square', 0.08));
     if (cual === 'fin') [0, 4, 7, 12].forEach((n, i) => nota(semi(n + 12), t + i * 0.12, 0.3, 'triangle', 0.15));
   }
