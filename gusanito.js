@@ -42,6 +42,10 @@
     vuelta: 60,             // segundos de cada vuelta; siempre el mismo tiempo, tenga el largo que tenga
     filaMax: 30,            // cuánta gente cabe en la fila de la estación
     camGiro: 3.5,           // qué tan rápido gira la cámara para seguir a la cabeza (1/s)
+    // turbo: mientras dura, la velocidad máxima sube (× C.turbo) y acelera más fuerte. Cada toque dura al menos
+    // C.turboMin s; manteniéndolo, sigue mientras quede carga. Una carga llena dura C.turboDura s y se llena
+    // sola en C.turboRecarga s (y del todo en la estación). Agotada, vuelve a servir desde C.turboVuelve.
+    turbo: 1.3, turboAcel: 1.8, turboMin: 0.8, turboDura: 4, turboRecarga: 9, turboVuelve: 0.25,
   };
 
   // ─── El gusanito crece con la plata, y con cada vagón el juego se pone más bravo ─
@@ -369,10 +373,10 @@
 
   // ─── Estado ────────────────────────────────────────────────────────
   let S; // estado de la vuelta
-  const entrada = { izq: false, der: false, freno: false }; // lo que usa el chofer; se arma cada cuadro
-  const teclado = { izq: false, der: false, freno: false };
+  const entrada = { izq: false, der: false, freno: false, turbo: false }; // lo que usa el chofer; se arma cada cuadro
+  const teclado = { izq: false, der: false, freno: false, turbo: false };
   const toques = new Map(); // dedo → 'izq' | 'der': media pantalla izquierda gira a la izquierda, la otra a la derecha
-  let botonFreno = false;
+  let botonFreno = false, botonTurbo = false;
   const tactil = matchMedia('(pointer: coarse)').matches;
   function armarEntrada() {
     let ti = false, td = false;
@@ -381,6 +385,7 @@
     entrada.izq = teclado.izq || (ti && !dosLados);
     entrada.der = teclado.der || (td && !dosLados);
     entrada.freno = teclado.freno || botonFreno || dosLados;
+    entrada.turbo = teclado.turbo || botonTurbo;
   }
 
   function nuevoPasajero() {
@@ -418,6 +423,7 @@
       // vuelta: segundos que le quedan a la vuelta con los pasajeros (null = no hay vuelta en curso)
       vuelta: null, avisos: {}, primera: true,
       est: { carga: 0, t: 0, llegaT: 0, fila: [] },
+      turbo: { carga: 1, activo: false, resto: 0, agotado: false, antes: false, sostiene: false, humo: 0 },
     };
     for (let k = 0; k < S.dif.vagones; k++) agregarVagon();
     for (let k = 0; k < 12; k++) S.est.fila.push(nuevoPasajero());
@@ -548,11 +554,41 @@
     k.ang += vuelta(Math.atan2(ty - k.y, tx - k.x) - k.ang) * Math.min(1, 2.5 * A * dt);
   }
 
+  // Turbo: cada toque empuja al menos C.turboMin s; mantenido, sigue mientras quede carga. Frenar lo corta.
+  function turbo(dt) {
+    const T = S.turbo, quiere = entrada.turbo && !entrada.freno;
+    // cada toque nuevo arranca (si hay carga); mantenerlo sigue, pero agotado hay que soltar y volver a tocar
+    if (quiere && !T.antes && !T.agotado && T.carga > 0) { T.resto = C.turboMin; T.sostiene = true; if (!T.activo) sonar('turbo'); }
+    if (!quiere) T.sostiene = false;
+    T.antes = quiere;
+    if (entrada.freno) T.resto = 0;
+    T.activo = !T.agotado && T.carga > 0 && (T.sostiene || T.resto > 0);
+    if (T.activo) {
+      T.carga = Math.max(0, T.carga - dt / C.turboDura);
+      T.resto -= dt;
+      if (T.carga <= 0) { T.agotado = true; T.activo = false; T.resto = 0; T.sostiene = false; }
+      // humito por los dos escapes de atrás
+      const k = S.cab, fx = Math.cos(k.ang), fy = Math.sin(k.ang);
+      if (!quieto && (T.humo -= dt) <= 0) {
+        T.humo = 0.05;
+        for (const lado of [-1, 1]) {
+          const x = k.x - fx * C.cabezaL / 2 - fy * lado * C.cabezaA * 0.4, y = k.y - fy * C.cabezaL / 2 + fx * lado * C.cabezaA * 0.4;
+          S.chispas.push({ x, y, vx: -fx * 70 - fy * lado * 30 + azar(-15, 15), vy: -fy * 70 + fx * lado * 30 + azar(-15, 15), vida: 0, dur: 0.45, c: 'rgba(215,215,225,.75)', r: azar(3, 6) });
+        }
+      }
+    } else {
+      T.carga = Math.min(1, T.carga + dt / C.turboRecarga);
+      T.resto = 0;
+      if (T.agotado && T.carga >= C.turboVuelve) T.agotado = false;
+    }
+  }
+
   function moverCabeza(dt) {
     const k = S.cab;
     const meta = (entrada.izq ? -1 : 0) + (entrada.der ? 1 : 0);
     k.giro += (meta - k.giro) * Math.min(1, C.giroSuave * dt);
-    let vMax = S.dif.vMax;
+    const turbo = S.turbo.activo;
+    let vMax = S.dif.vMax * (turbo ? C.turbo : 1);
     // con ayuda, afloja al acercarse a la estación (para que sea fácil parar ahí)
     if (S.dif.asist > 0 && S.est.carga >= 0) {
       const rx = ESTACION.x - k.x, ry = ESTACION.y - k.y, d = Math.hypot(rx, ry);
@@ -562,7 +598,7 @@
     const subiendo = S.parando && S.est.carga > 0 && S.est.carga < 0.6;
     if (entrada.freno && !subiendo && k.v <= 2) k.v = Math.max(-C.reversa, k.v - C.acel * 0.6 * dt); // parado y frenando: reversa
     else if (entrada.freno || subiendo) k.v = Math.max(0, k.v - C.freno * dt);
-    else if (k.v < vMax) k.v = Math.min(vMax, k.v + C.acel * dt * (k.v < 0 ? 3 : 1));
+    else if (k.v < vMax) k.v = Math.min(vMax, k.v + C.acel * (turbo ? C.turboAcel : 1) * dt * (k.v < 0 ? 3 : 1));
     else k.v = Math.max(vMax, k.v - C.freno * 0.3 * dt);
     // el volante siempre responde: parado también se puede girar (a menos velocidad)
     let w = k.v * Math.tan(k.giro * C.volanteMax) / C.ejes; // radio mínimo: ejes / tan(volante)
@@ -877,6 +913,7 @@
     if (S.fin) return;
     if (S.comb <= 0 && S.plata < precioComb()) { terminar('combustible'); return; }
     S.decidiendo = true; S.corriendo = false; S.vuelta = null; musica(false);
+    Object.assign(S.turbo, { carga: 1, agotado: false, activo: false, resto: 0, sostiene: false }); // en la estación se llena el turbo
     mostrar('estacion');
     renderTienda();
   }
@@ -1157,25 +1194,28 @@
     ultimo = ahora;
     if (S.corriendo) {
       const sub = 3, h = dt / sub;
+      turbo(dt);
       for (let s = 0; s < sub; s++) { moverCabeza(h); moverVagones(h); }
       pasajeros(dt); estacion(dt); caminantes(dt);
       romperSiHaceFalta(); colaAviso(); contarRedondel();
       if (S.rompiendo > 0 && (S.rompiendo -= dt) <= 0) terminar('partio');
       actualizarHud();
-    }
+    } else S.turbo.activo = false;
+    hudTurbo();
     efectos(dt);
     dibujar(dt);
     requestAnimationFrame(cuadro);
   }
 
   // ─── Dibujo ────────────────────────────────────────────────────────
-  let W = 0, H = 0, dpr = 1, zoom = 1;
+  let W = 0, H = 0, dpr = 1, zoom = 1, zoomBase = 1, rapidez = 0; // rapidez: 0 a la velocidad normal, 1 a toda la del turbo
   function medir() {
     dpr = Math.min(2, devicePixelRatio || 1);
     W = innerWidth; H = innerHeight;
     lienzo.width = W * dpr; lienzo.height = H * dpr;
-    zoom = clamp(Math.min(W, H) / 560, 0.62, 1.5);
-    if (W > H * 1.4) zoom = clamp(H / 520, 0.55, 1.5);
+    zoomBase = clamp(Math.min(W, H) / 560, 0.62, 1.5);
+    if (W > H * 1.4) zoomBase = clamp(H / 520, 0.55, 1.5);
+    zoom = zoomBase;
     PIVOTE = H > W ? 0.54 : 0.64;
   }
   addEventListener('resize', medir);
@@ -1202,6 +1242,10 @@
     while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
     S.cam.ang += da * Math.min(1, dt * C.camGiro);
     camRot = -Math.PI / 2 - S.cam.ang;
+    // con el turbo la cámara se aleja un poco: se ve más camino
+    const meta = clamp((k.v - S.dif.vMax) / (S.dif.vMax * (C.turbo - 1)), 0, 1);
+    rapidez += (meta - rapidez) * Math.min(1, dt * 3);
+    zoom = zoomBase * (quieto ? 1 : 1 - 0.1 * rapidez);
     let sx = 0, sy = 0;
     if (k.golpe > 0 && !quieto) { sx = azar(-6, 6) * k.golpe; sy = azar(-6, 6) * k.golpe; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1308,6 +1352,7 @@
       ctx.fillStyle = t.color; ctx.fillText(t.t, q.x, y);
     }
     ctx.globalAlpha = 1;
+    if (rapidez > 0.05 && !quieto) rayas();
     medidorDiversion();
     zonasTactiles();
     // flechas hacia la estación fuera de pantalla
@@ -1650,6 +1695,14 @@
       ctx.fillStyle = '#F2E14B'; ctx.beginPath(); ctx.arc(42, sy * 26 + bam, 5, 0, 7); ctx.fill();
       ctx.fillStyle = '#E8458B'; ctx.beginPath(); ctx.arc(43, sy * 26 + bam - 1, 2, 0, 7); ctx.fill();
     }
+    // turbo: llamitas en los dos escapes de atrás
+    if (S.turbo.activo) {
+      const fl = quieto ? 1 : 0.75 + Math.random() * 0.5;
+      for (const sy of [-1, 1]) {
+        ctx.fillStyle = '#F2B33D'; ctx.beginPath(); ctx.moveTo(-l / 2 + 2, sy * (a / 2 - 9) - 4); ctx.lineTo(-l / 2 - 16 * fl, sy * (a / 2 - 7)); ctx.lineTo(-l / 2 + 2, sy * (a / 2 - 9) + 4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#FFF1A8'; ctx.beginPath(); ctx.moveTo(-l / 2 + 2, sy * (a / 2 - 9) - 2); ctx.lineTo(-l / 2 - 8 * fl, sy * (a / 2 - 8)); ctx.lineTo(-l / 2 + 2, sy * (a / 2 - 9) + 2); ctx.closePath(); ctx.fill();
+      }
+    }
     ctx.restore();
     // toldo del chofer
     ctx.save(); ctx.translate(k.x, k.y); ctx.rotate(k.ang); ctx.translate(-14, 0);
@@ -1657,6 +1710,19 @@
     ctx.restore();
   }
   const CHOFER = { ropa: '#D6382B', pelo: '#111', piel: '#B97D55', sombrero: null };
+
+  // Rayas de velocidad a los costados de la pantalla mientras va más rápido que lo normal
+  function rayas() {
+    const t = performance.now() / 1000, banda = Math.min(110, W * 0.16);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    for (let i = 0; i < 16; i++) {
+      const lado = i % 2 ? 1 : -1, x = lado < 0 ? 8 + (i * 53) % banda : W - 8 - (i * 53) % banda;
+      const largo = 50 + 50 * rapidez, y = ((t * (700 + i * 23) + i * 197) % (H + largo)) - largo;
+      ctx.globalAlpha = 0.35 * rapidez;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + largo); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
 
   function estrella(x, y, r) {
     ctx.beginPath();
@@ -1771,6 +1837,18 @@
     h.vidas.textContent = '♥'.repeat(S.vidas) + '♡'.repeat(Math.max(0, C.vidas - S.vidas));
   }
 
+  // El botón Turbo se llena con la carga; agotado, se apaga hasta que vuelve a servir
+  const bTurbo = $('#m-turbo');
+  let turboCache = '';
+  function hudTurbo() {
+    const T = S.turbo, pct = Math.round(T.carga * 50) * 2, clave = pct + (T.activo ? 'a' : '') + (T.agotado ? 'x' : '');
+    if (clave === turboCache) return;
+    turboCache = clave;
+    bTurbo.style.setProperty('--carga', pct + '%');
+    bTurbo.classList.toggle('activo', T.activo);
+    bTurbo.classList.toggle('agotado', T.agotado);
+  }
+
   // ─── Capas ─────────────────────────────────────────────────────────
   const capas = { inicio: $('#c-inicio'), pausa: $('#c-pausa'), fin: $('#c-fin'), estacion: $('#c-estacion') };
   const hud = $('.hud-juego');
@@ -1822,7 +1900,7 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden) pausar(); });
 
   // ─── Mandos ────────────────────────────────────────────────────────
-  const teclas = { ArrowLeft: 'izq', KeyA: 'izq', ArrowRight: 'der', KeyD: 'der', ArrowDown: 'freno', KeyS: 'freno', Space: 'freno' };
+  const teclas = { ArrowLeft: 'izq', KeyA: 'izq', ArrowRight: 'der', KeyD: 'der', ArrowDown: 'freno', KeyS: 'freno', Space: 'freno', ArrowUp: 'turbo', KeyW: 'turbo' };
   addEventListener('keydown', (e) => {
     // solo mientras se juega se le quita a la página Espacio y las flechas (en una capa activan botones y desplazan)
     if (teclas[e.code]) { teclado[teclas[e.code]] = true; if (S.corriendo) e.preventDefault(); }
@@ -1834,7 +1912,7 @@
   addEventListener('keyup', (e) => { if (teclas[e.code]) { teclado[teclas[e.code]] = false; if (S.corriendo) e.preventDefault(); } });
   // al perder el foco (otra ventana, o un clic fuera del iframe en una.red) se suelta todo y se pausa
   addEventListener('blur', () => {
-    teclado.izq = teclado.der = teclado.freno = false; toques.clear(); botonFreno = false;
+    teclado.izq = teclado.der = teclado.freno = teclado.turbo = false; toques.clear(); botonFreno = botonTurbo = false;
     document.querySelectorAll('.mando.activo').forEach((b) => b.classList.remove('activo'));
     pausar();
   });
@@ -1855,6 +1933,10 @@
   bFreno.addEventListener('pointerdown', (e) => { e.preventDefault(); botonFreno = true; bFreno.classList.add('activo'); bFreno.setPointerCapture?.(e.pointerId); });
   for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) bFreno.addEventListener(ev, () => { botonFreno = false; bFreno.classList.remove('activo'); });
   bFreno.addEventListener('contextmenu', (e) => e.preventDefault());
+  // el botón Turbo (junto al freno); la carga se pinta en el botón (hudTurbo)
+  bTurbo.addEventListener('pointerdown', (e) => { e.preventDefault(); botonTurbo = true; bTurbo.setPointerCapture?.(e.pointerId); });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) bTurbo.addEventListener(ev, () => { botonTurbo = false; });
+  bTurbo.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // ─── Sonido: banda de pueblo de juguete ────────────────────────────
   let ac = null, maestro = null, conSonido = true, musicaOn = false, sigNota = 0, compas = 0;
@@ -1904,6 +1986,12 @@
       }
     }
     if (cual === 'tarde') [7, 3, 0].forEach((n, i) => nota(semi(n), t + i * 0.16, 0.22, 'square', 0.07));
+    if (cual === 'turbo') {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(700, t + 0.35);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + 0.04); g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+      o.connect(g); g.connect(maestro); o.start(t); o.stop(t + 0.45);
+    }
     if (cual === 'nivel') [0, 4, 7, 12, 16].forEach((n, i) => nota(semi(n + 12), t + i * 0.09, 0.25, 'square', 0.08));
     if (cual === 'fin') [0, 4, 7, 12].forEach((n, i) => nota(semi(n + 12), t + i * 0.12, 0.3, 'triangle', 0.15));
   }

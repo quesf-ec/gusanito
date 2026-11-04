@@ -46,12 +46,20 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 .aviso{font-family:var(--mal-texto,sans-serif);font-weight:900;font-size:clamp(.9rem,.82rem + .45vw,1.1rem);line-height:1.25;text-align:center;
   color:#fff;padding:3px 12px;border-radius:10px;background:rgba(20,12,30,.55);text-shadow:0 2px 0 rgba(30,15,40,.9);max-width:min(92vw,520px)}
 .aviso--chico{font-family:var(--mal-texto,sans-serif);font-weight:700;font-size:.85rem}
-/* abajo: solo el freno (para girar se toca cualquier punto de la mitad izquierda o derecha) */
+/* abajo: el freno y el turbo (para girar se toca cualquier punto de la mitad izquierda o derecha) */
 .hud-juego__abajo{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
 .mando{pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(4px)}
 .mando--freno{width:clamp(110px,32vw,150px);height:52px;border-radius:999px;border:3px solid rgba(255,255,255,.85);background:rgba(214,56,43,.55);
   color:#fff;font:800 .95rem/1 var(--mal-texto, sans-serif);letter-spacing:.08em;text-transform:uppercase}
 .mando.activo{background:rgba(242,179,61,.8);color:#2A1B3D}
+.mandos{display:flex;gap:12px;justify-content:center}
+/* el turbo se llena con su carga (--carga la pone el juego) */
+.mando--turbo{--carga:100%;width:clamp(110px,32vw,150px);height:52px;border-radius:999px;border:3px solid rgba(255,255,255,.85);
+  background:linear-gradient(90deg,rgba(242,179,61,.75) var(--carga),rgba(20,12,30,.45) var(--carga));
+  color:#fff;font:800 .95rem/1 var(--mal-texto, sans-serif);letter-spacing:.08em;text-transform:uppercase;text-shadow:0 1px 0 rgba(30,15,40,.8)}
+.mando--turbo.activo{border-color:#F2E14B;background:linear-gradient(90deg,rgba(242,225,75,.95) var(--carga),rgba(20,12,30,.45) var(--carga));color:#2A1B3D;text-shadow:none}
+.mando--turbo.agotado{opacity:.55}
+@media (hover:hover) and (pointer:fine){ .mando--turbo{width:120px;height:40px;font-size:.8rem} }
 .teclas{color:#fff;opacity:.8;font-size:var(--mal-t-micro);text-align:center;margin:0;text-shadow:0 1px 0 rgba(0,0,0,.5)}
 @media (hover:hover) and (pointer:fine){ .mando--freno{display:none} }
 @media not ((hover:hover) and (pointer:fine)){ .teclas{display:none} }
@@ -139,8 +147,11 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
     </div>
     <div class="avisos" id="avisos" aria-live="polite"></div>
     <div class="hud-juego__abajo">
-      <p class="teclas">← → girar · ↓ o espacio frenar · el gusanito acelera solo</p>
-      <button class="mando mando--freno" id="m-freno" type="button">Freno</button>
+      <p class="teclas">← → girar · ↑ turbo · ↓ o espacio frenar · el gusanito acelera solo</p>
+      <div class="mandos">
+        <button class="mando mando--freno" id="m-freno" type="button">Freno</button>
+        <button class="mando mando--turbo" id="m-turbo" type="button" aria-label="Turbo: mantenlo para ir más rápido mientras le quede carga">Turbo</button>
+      </div>
     </div>
   </div>
 
@@ -150,7 +161,7 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
       <p class="kicker">En las calles de Pujilí</p>
       <h1 id="t-juego">El gusanito</h1>
       <ol class="pasos">
-        <li><b class="n">1</b><p><b>Para girar</b>, toca y mantén la mitad <b>izquierda</b> o <b>derecha</b> de la pantalla (o ← →). Gira como un carro de verdad: necesita espacio y quieto no gira. <b>Freno</b> (o los dos lados a la vez) frena, y si ya estás parado, va en <b>reversa</b>.</p></li>
+        <li><b class="n">1</b><p><b>Para girar</b>, toca y mantén la mitad <b>izquierda</b> o <b>derecha</b> de la pantalla (o ← →). Gira como un carro de verdad: necesita espacio y quieto no gira. <b>Freno</b> (o los dos lados a la vez) frena, y si ya estás parado, va en <b>reversa</b>. <b>Turbo</b> (o ↑) va más rápido mientras le quede carga: más meneo, más riesgo; se recarga solo.</p></li>
         <li><b class="n">2</b><p>La gente sube en la <b>estación del parque</b>. Diviértelos con zigzag y <b>redondeles</b>: la carita junto al gusanito muestra cuánto. La raya blanca es el <b>75 %</b>.</p></li>
         <li><b class="n">3</b><p>Se bajan al final de la vuelta, o antes si llegan al <b>100 %</b>. Con menos de 75 % <b>piden devuelto</b>; si te demoras, la fila <b>se va</b>.</p></li>
         <li><b class="n">4</b><p>En la estación compras <b>combustible</b> (cada vuelta gasta), <b>vagones</b> (más gente, más plata, la cola más brava), barras, parlante o luces para la <b>noche</b>.</p></li>
@@ -211,6 +222,6 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 
 <script src="https://franciscombp.github.io/ds/mal/mal.js?v=1.0.22" defer></script>
 <script src="mapas/pujili.js?v=1"></script>
-<script src="gusanito.js?v=14"></script>
+<script src="gusanito.js?v=15"></script>
 </body>
 </html>
