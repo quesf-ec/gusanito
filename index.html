@@ -18,22 +18,43 @@ html,body{height:100%}
 body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;background:#2A1B3D}
 .escena{position:fixed;inset:0}
 #pueblo{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
-.hud-juego{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;
-  padding:max(var(--mal-e3), env(safe-area-inset-top)) max(var(--mal-e3), env(safe-area-inset-right))
-          max(var(--mal-e3), env(safe-area-inset-bottom)) max(var(--mal-e3), env(safe-area-inset-left));
-  pointer-events:none;z-index:1}
-.hud-juego__arriba .fila{display:flex;gap:var(--mal-e2)}
-.hud-juego__cifras{gap:6px}
-.cifras{display:flex;gap:var(--mal-e4);align-items:flex-start}
-.cifras .marcador{font-size:clamp(1.4rem, 1rem + 2vw, 2.2rem);color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.35)}
-.cifras .marcador small{color:rgba(255,255,255,.75)}
-.alegria{width:min(76vw, 300px);display:grid;gap:4px}
-.cifras .marcador.poco,.alegria .poco{color:#FFB3A8}
-.alegria .vagon{font-weight:600;opacity:.85;justify-content:flex-end;white-space:normal;text-align:right;letter-spacing:.04em}
-.alegria .micro{color:#fff;margin:0;display:flex;justify-content:space-between;gap:var(--mal-e2);white-space:nowrap;letter-spacing:.06em;font-weight:700;text-shadow:0 1px 0 rgba(0,0,0,.4)}
-.alegria .medidor--continuo{height:10px;background:rgba(0,0,0,.35)}
-.alegria .medidor--continuo > i{display:block;height:100%;width:0;border-radius:inherit;
-  background:linear-gradient(90deg,#F2B33D,#E8458B,#7E3592);transition:width .2s}
+.hud-juego{position:absolute;inset:0;display:flex;flex-direction:column;gap:var(--mal-e2);
+  padding:max(var(--mal-e2), env(safe-area-inset-top)) max(var(--mal-e3), env(safe-area-inset-right))
+          max(var(--mal-e2), env(safe-area-inset-bottom)) max(var(--mal-e3), env(safe-area-inset-left));
+  pointer-events:none;z-index:1;color:#fff}
+.hud-juego > *{pointer-events:auto}
+.estado,.avisos{pointer-events:none}
+/* tablero: botones y cifras en una sola franja */
+.tablero{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:6px 10px;border-radius:14px;
+  background:rgba(20,12,30,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.tablero__botones{display:flex;gap:6px}
+.tablero__botones .btn--icono{width:40px;height:40px;min-height:0}
+.tablero__datos{display:flex;flex-wrap:wrap;gap:4px 14px;margin:0 0 0 auto;padding:0}
+.dato{display:grid;gap:1px;min-width:52px}
+.dato dt{margin:0;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;opacity:.75}
+.dato dd{margin:0;font-weight:800;font-size:1.05rem;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dato dd.mal{color:#FFB3A8}
+/* estado: qué pasa ahora, cuánto tiempo queda, cuánta diversión hay y qué hacer */
+.estado{display:grid;gap:6px;width:min(94vw,400px);padding:8px 12px;border-radius:14px;
+  background:rgba(20,12,30,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.estado__titulo{margin:0;font-weight:800;font-size:.95rem}
+.estado__tiempo{height:6px;border-radius:3px;background:rgba(255,255,255,.2);overflow:hidden}
+.estado__tiempo i{display:block;height:100%;width:0;background:#F2E14B;transition:width .25s}
+.estado__tiempo i.poco{background:#FF8A7A}
+.estado__div{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;font-size:.8rem;font-weight:700}
+.estado__barra{position:relative;height:12px;border-radius:6px;background:rgba(0,0,0,.4)}
+.estado__barra i{display:block;height:100%;width:0;border-radius:inherit;background:#F2B33D;transition:width .25s,background .25s}
+.estado__barra em{position:absolute;top:-4px;bottom:-4px;left:75%;width:2px;border-radius:1px;background:#fff}
+.estado__nota{margin:0;font-weight:800;font-size:.9rem;line-height:1.25}
+.estado__pie{margin:0;font-size:.74rem;opacity:.85}
+/* avisos: una franja propia debajo del estado */
+.avisos{display:grid;gap:6px;justify-items:center}
+.aviso{font-family:var(--mal-display,sans-serif);font-weight:900;font-size:clamp(1.05rem,.95rem + 1vw,1.5rem);line-height:1.2;
+  text-align:center;color:#fff;padding:4px 14px;border-radius:12px;background:rgba(20,12,30,.6);
+  text-shadow:0 2px 0 rgba(30,15,40,.9);max-width:min(94vw,560px)}
+.aviso--chico{font-family:var(--mal-texto,sans-serif);font-weight:700;font-size:.9rem}
+.hud-juego__abajo{margin-top:auto;display:flex;flex-direction:column;align-items:stretch;gap:6px}
+@media (max-height:520px){ .estado__pie{display:none} .tablero{padding:4px 8px} .dato dt{display:none} .estado{padding:6px 10px} }
 .mandos{display:flex;gap:var(--mal-e2);width:100%;justify-content:space-between;align-items:flex-end}
 .mando{pointer-events:auto;touch-action:none;width:clamp(68px, 20vw, 96px);height:clamp(68px, 20vw, 96px);border-radius:50%;
   border:3px solid rgba(255,255,255,.85);background:rgba(42,27,61,.45);color:#fff;font:800 1.9rem/1 var(--mal-display, sans-serif);
@@ -83,29 +104,37 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
   <canvas id="pueblo" role="img" aria-label="Un pueblo en fiestas visto desde arriba: calles largas con banderines, redondeles con flores, el parque con su kiosco y la estación, y el gusanito de colores con sus vagones llenos de gente"></canvas>
 
   <div class="hud-juego">
-    <div class="hud-juego__arriba">
-      <div class="fila">
+    <header class="tablero">
+      <div class="tablero__botones">
         <button class="btn btn--icono" id="b-pausa" type="button" aria-label="Pausa">
           <svg class="icono" aria-hidden="true"><use href="#i-menu"/></svg></button>
         <button class="btn btn--icono" id="b-sonido" type="button" aria-label="Sonido" aria-pressed="true">
           <svg class="icono" aria-hidden="true"><use href="#i-altavoz"/></svg></button>
       </div>
-      <div class="hud-juego__cifras">
-        <div class="cifras">
-          <p class="marcador" id="h-largo">2<small>vagones</small></p>
-          <p class="marcador" id="h-plata" aria-live="polite">$0,00<small>la plata</small></p>
-        </div>
-        <div class="alegria">
-          <p class="micro"><span id="h-vuelta">En la estación</span><span id="h-vidas">♥♥♥</span></p>
-          <p class="micro"><span id="h-gente">0/8 a bordo</span><span id="h-vueltas">Vueltas 0 · redondel 0</span></p>
-          <div class="medidor medidor--continuo" aria-hidden="true"><i id="h-alegria"></i></div>
-          <p class="micro"><span id="h-fila">Fila 12 · confianza 100 %</span></p>
-          <p class="micro vagon" id="h-vagon"></p>
-        </div>
-      </div>
-    </div>
+      <dl class="tablero__datos">
+        <div class="dato"><dt>Vagones</dt><dd id="h-largo">2</dd></div>
+        <div class="dato"><dt>Vueltas</dt><dd id="h-vueltas">0</dd></div>
+        <div class="dato"><dt>Combustible</dt><dd id="h-comb">●●●●</dd></div>
+        <div class="dato"><dt>Plata</dt><dd id="h-plata" aria-live="polite">$0,00</dd></div>
+        <div class="dato"><dt>Vidas</dt><dd id="h-vidas">♥♥♥</dd></div>
+      </dl>
+    </header>
 
-    <div class="hud-juego__abajo" style="flex-direction:column;align-items:stretch">
+    <section class="estado">
+      <p class="estado__titulo" id="h-titulo">En la estación</p>
+      <div class="estado__tiempo" aria-hidden="true"><i id="h-tiempo-bar"></i></div>
+      <div class="estado__div">
+        <span>Diversión</span>
+        <div class="estado__barra" aria-hidden="true"><i id="h-alegria"></i><em></em></div>
+        <b id="h-alegria-pct">—</b>
+      </div>
+      <p class="estado__nota" id="h-nota"></p>
+      <p class="estado__pie" id="h-pie"></p>
+    </section>
+
+    <div class="avisos" id="avisos" aria-live="polite"></div>
+
+    <div class="hud-juego__abajo">
       <p class="teclas">← → para girar · ↓ o espacio para frenar · el gusanito acelera solo</p>
       <div class="mandos">
         <button class="mando" id="m-izq" type="button" aria-label="Girar a la izquierda">◀</button>
@@ -121,12 +150,12 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
       <p class="kicker">Fiestas del pueblo</p>
       <h1 id="t-juego">El gusanito</h1>
       <ol class="pasos">
-        <li><b class="n">1</b><p>El gusanito está en la <b>estación del parque</b>. La gente hace fila y se sube.</p></li>
-        <li><b class="n">2</b><p><b>Dales una vuelta</b>: zigzag y <b>redondeles</b> (cada cuadra tiene uno). Cada vuelta completa dentro de un redondel da <b>puntos extra</b>.</p></li>
-        <li><b class="n">3</b><p>Regresa a la estación. Pagan según lo felices que bajen; si la vuelta fue corta o se aburrieron, <b>piden devuelto</b>; si esperan mucho, <b>se van</b>.</p></li>
-        <li><b class="n">4</b><p>En la estación decides: <b>más vagones</b> (más gente y más plata, pero la cola se sacude más), barras reforzadas, un parlante, o luces para jugar <b>de noche</b>.</p></li>
+        <li><b class="n">1</b><p>Estaciónate en el <b>parque</b>. La gente hace fila y se sube.</p></li>
+        <li><b class="n">2</b><p>Cada vuelta dura <b>lo mismo</b>. Zigzag y <b>redondeles</b> (cada cuadra tiene uno) para divertirlos. Llegar con <b>75 %</b> de diversión o más es lo que les hace pagar; si no, <b>piden devuelto</b>. Con <b>100 %</b> puedes estacionarte antes.</p></li>
+        <li><b class="n">3</b><p>En la estación el tiempo se para: compra <b>combustible</b>, <b>vagones</b> (más gente y más plata, pero la cola se sacude más), barras, parlante o luces para jugar <b>de noche</b>.</p></li>
+        <li><b class="n">4</b><p>Cada vuelta gasta combustible. Sin combustible ni plata, se acaba. Lo que cuenta son tus <b>vueltas</b> y tu <b>gusanito más largo</b>.</p></li>
       </ol>
-      <p class="caption">Se acaba cuando la cola se parte, cuando pierdes las tres vidas por chocar, o cuando la fila pierde la confianza. Hay dos récords: el <b>gusanito más largo</b> y las <b>más vueltas</b>.</p>
+      <p class="caption">Se acaba cuando la cola se parte, cuando pierdes las tres vidas por chocar, cuando la fila pierde la confianza o cuando te quedas sin combustible.</p>
       <button class="btn btn--rojo boton-juego btn-block" id="b-arrancar" type="button">¡Arrancar!</button>
     </div>
   </div>
@@ -178,6 +207,6 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 </main>
 
 <script src="https://franciscombp.github.io/ds/mal/mal.js?v=1.0.22" defer></script>
-<script src="gusanito.js?v=9"></script>
+<script src="gusanito.js?v=10"></script>
 </body>
 </html>

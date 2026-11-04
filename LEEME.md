@@ -11,40 +11,41 @@ presentación va en una.red, no aquí.
 
 ## Cómo se juega
 
-- El gusanito arranca **estacionado en la estación del parque**, con 2 vagones. La gente hace fila en la
-  vereda del parque y se sube.
-- En cada **vuelta** hay que **hacerlos felices**: zigzag y **redondeles** (ahí el meneo vale ×1,5). Si vas
-  recto sin gracia, se aburren un poco. Atrás se siente más.
-- Cada **vuelta completa por dentro de un redondel** da **puntos extra**: $0,50 más $0,10 por pasajero
-  a bordo (de noche, ×1,5).
-- Cada vuelta tiene su tiempo (45 s, y 4 s más por cada vagón de más). Si te demoras, la fila se cansa y
-  **se va** (cada uno baja la **confianza** de la fila).
-- **Regresa a la estación** y para ahí. Todos bajan y pagan según su alegría ($0,25 si vienen aburridos,
-  hasta $1,25 felices, más $0,25 de propina si además no se asustaron). Si la vuelta fue muy corta (menos
-  de 25 s) o alguien bajó aburrido (alegría menor a 30 %), **piden devuelto**: no pagan y la fila se molesta.
-- **En la estación decides, y el tiempo se para** hasta que digas **¡Vámonos!** La plata se gasta aquí:
+- El gusanito arranca **estacionado en la estación del parque**, con 2 vagones. La gente hace fila y se sube.
+- **Cada vuelta dura 60 s, siempre lo mismo** (`C.vuelta`), tenga el largo que tenga. Regresa a la estación
+  antes de que se acabe. Si te demoras, la fila se cansa y **se va** (cada uno baja la **confianza**).
+- **La diversión es lo que cuenta**. Zigzag y **redondeles** (ahí el meneo vale ×1,5). Entre más gente a
+  bordo, más cuesta divertirlos: cada pasajero por encima de 4 resta un 8 % de velocidad, hasta un 60 % menos.
+- **Para cobrar, el grupo tiene que llegar con 75 % de diversión o más.** Si no, **piden devuelto**, llegues
+  a tiempo o no: no pagan y la fila se molesta. Con **100 %** (todos al tope) puedes estacionarte antes de
+  que se acabe la vuelta, y cobras.
+- Al llegar, pagan según lo felices que bajen ($0,25 si vienen en 0 %, hasta $1,25 felices, más $0,25 de
+  propina si además no se asustaron).
+- **En la estación decides, y el tiempo se para** hasta que digas **¡Vámonos!**:
+  - **Combustible**: cada vuelta gasta una de las 4 vueltas del tanque (●●●●). Llenarlo cuesta
+    $10 + $2 por vagón. Sin combustible no sales; sin combustible ni plata, se acaba la partida.
   - **Vagón nuevo**: su precio sube con cada vagón ($8, $20, $35…). Más vagones = más gente y más plata
     por vuelta, pero una cola más larga se sacude más. Si hay gente en la fila, sube al nuevo.
   - **Barras reforzadas** ($30, $60…): la cola aguanta más sacudida antes de cansarse.
   - **Parlante con música** ($60): la gente se divierte más rápido; se ve en el último vagón.
   - **Luces de colores** ($50): desbloquean **De noche**. De noche cobras ×1,5 y todo se oscurece con las luces.
-  - **¡Vámonos!** arranca la siguiente vuelta. Hace falta que haya al menos un pasajero a bordo.
 - **No hay reloj de fiesta y no hay tope de largo.** Mientras más vagones, más se sacude la cola, y el
   gusanito se acaba cuando:
   - **La cola se parte**: cada barra se cansa cuando la sacudida de la cola pasa de lo que aguanta
     (`C.aguanta`, más con las barras reforzadas), y se recupera cuando no. Si una se cansa del todo, se
     suelta todo lo de atrás (con su gente, que se cae) y se acaba. Medido sin paredes con inercia 0,92: con
     4 u 8 vagones no se partió en 25 s de zigzag; con 10 y zigzag amplio llegó casi al límite; con 12 y zigzag
-    amplio se partió a los 3,3 s. Las barras se ponen rosas y luego amarillas cuando se cansan, y aparece el
-    aviso «la cola está a punto de partirse».
+    amplio se partió a los 3,3 s.
   - **Te quedan sin vidas** (♥♥♥): tres golpes contra casas, árboles, el kiosco o el borde. Cada golpe
-    **suelta el último vagón** (con su gente, que se cae) y le baja la confianza a la fila. Con dos
-    vagones ya no se suelta más.
+    **suelta el último vagón** y le baja la confianza a la fila.
   - **Nadie quiere subirse**: la confianza de la fila llega a 0 porque la gente se fue esperando, pidió
-    devuelto o le fue mal en los golpes. Con poca confianza, la fila casi no llega.
-- **Dos récords** (se guardan en el navegador): el **gusanito más largo** (el pico de vagones que llegaste a
-  tener, aunque después se haya partido) y las **más vueltas** (viajes a la estación). Cada 5 vagones nuevos
-  sale un aviso.
+    devuelto o le fue mal en los golpes.
+  - **Sin combustible ni plata** para salir.
+- **Dos récords** (se guardan en el navegador): el **gusanito más largo** (el pico de vagones) y las **más
+  vueltas** (viajes a la estación).
+- **HUD**: arriba, una franja con vagones, vueltas, combustible, plata y vidas. Debajo, el estado: qué pasa
+  ahora, cuánto falta para volver, la barra de diversión (la marca blanca es el 75 %) y qué hacer. Los avisos
+  salen en su propia franja, debajo de ese estado.
 - El gusanito acelera solo. **← →** (o los botones ◀ ▶ en el celular) para girar, **↓ / espacio / Freno**
   para frenar. **P** o **Esc** para pausar. Con el celular acostado, el freno va a la derecha.
 - La **cámara gira con la cabeza**: la trompa siempre apunta hacia arriba, así ◀ ▶ siempre son izquierda

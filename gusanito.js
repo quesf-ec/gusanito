@@ -28,8 +28,9 @@
     divLleno: 650,          // desde aquí la diversión ya no sube más rápido
     ritmoDiv: 0.2,          // qué tan rápido se llena la diversión con meneo fuerte (por segundo)
     vidas: 3,               // golpes contra casas, árboles, el kiosco o el borde que aguanta el gusanito
-    vueltaMin: 25,          // si la vuelta dura menos, piden devuelto
-    vuelta: 45,             // segundos que dura cada vuelta con los pasajeros (+4 por cada vagón de más)
+    minDiv: 0.75,           // diversión mínima del grupo al llegar: si no llega, piden devuelto
+    combustible: 4,         // vueltas que da un tanque lleno
+    vuelta: 60,             // segundos de cada vuelta; siempre el mismo tiempo, tenga el largo que tenga
     filaMax: 30,            // cuánta gente cabe en la fila de la estación
     camGiro: 3.5,           // qué tan rápido gira la cámara para seguir a la cabeza (1/s)
   };
@@ -67,6 +68,7 @@
   const quieto = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = (s) => document.querySelector(s);
   const lienzo = $('#pueblo');
+  const avisos = $('#avisos');
   const ctx = lienzo.getContext('2d');
 
   // Aleatorio con semilla para que el pueblo sea siempre el mismo
@@ -172,7 +174,7 @@
     S = {
       plata: 0, viajes: 0, felices: 0, asustados: 0, caidos: 0, choques: 0, seFueron: 0, devueltos: 0,
       vidas: C.vidas, confianza: 100, viajeT: 0, motivo: null, pico: 2, rompiendo: 0,
-      decidiendo: false, ronda: null, vueltasRedondel: 0, total: 0, barras: 0, parlante: false, luces: false, noche: false,
+      decidiendo: false, comb: C.combustible, ronda: null, vueltasRedondel: 0, total: 0, barras: 0, parlante: false, luces: false, noche: false,
       corriendo: false, fin: false,
       cab: { x: x0, y: y0, ang: 0, v: 0, giro: 0, golpe: 0, enfriar: 0 },
       vagones: [], caminantes: [], volando: [], textos: [], chispas: [], anuncios: [], seVan: [],
@@ -467,6 +469,7 @@
   // ─── Pasajeros: se divierten con el meneo, se asustan con el latigazo ─
   function pasajeros(dt) {
     const extra = enRedondel(S.cab.x, S.cab.y, 30) ? 1.5 : 1; // dar vueltas en un redondel divierte más
+    const dil = clamp(1 / (1 + Math.max(0, aBordo() - 4) * 0.08), 0.4, 1); // más gente, más difícil divertirlos
     const lento = Math.abs(S.cab.v) < 30 && S.parando <= 0;
     const d = S.dif;
     const tarde = S.vuelta !== null && S.vuelta < 0;
@@ -479,7 +482,7 @@
         p.t += dt;
         if (e > C.divDesde) {
           const tramo = Math.min(e, C.divLleno, d.miedo) - C.divDesde;
-          p.div += tramo / (C.divLleno - C.divDesde) * C.ritmoDiv * d.ritmo * extra * (S.parlante ? 1.25 : 1) * dt;
+          p.div += tramo / (C.divLleno - C.divDesde) * C.ritmoDiv * d.ritmo * extra * dil * (S.parlante ? 1.25 : 1) * dt;
         } else p.div -= (lento ? 0.04 : 0.025) * dt; // sin meneo se aburren (y parados, más)
         if (tarde) p.div -= 0.05 * dt;          // ya quieren bajarse
         if (e > d.miedo) p.miedo += (e - d.miedo) / 250 * dt;
@@ -514,7 +517,7 @@
 
   const capacidad = () => S.vagones.length * C.asientos;
   const aBordo = () => S.vagones.reduce((n, v) => n + v.asientos.filter(Boolean).length, 0);
-  const duracionVuelta = () => C.vuelta + 4 * (S.vagones.length - 2);
+  const duracionVuelta = () => C.vuelta;
 
   // La estación: llega gente a la fila; si el gusanito se demora, se cansan y se van.
   // Al parar ahí, todos se bajan y pagan según lo felices que vienen, y sube la siguiente tanda.
@@ -558,39 +561,45 @@
   }
 
   function llegada() {
-    S.anuncios.length = 0; // lo que pasa al llegar reemplaza los avisos de la vuelta
-    const dura = S.viajeT; S.viajeT = 0;
-    const corta = dura < C.vueltaMin;
-    // 1 · bajan todos. Pagan según lo divertido que fue; si fue muy corta o no se divirtieron, piden devuelto
-    let cobro = 0, bajan = 0, suma = 0, devs = 0;
+    limpiarAvisos(); // lo que pasa al llegar reemplaza los avisos de la vuelta
+    S.viajeT = 0;
+    // 1 · bajan todos. Si la diversión del grupo llega al 75 % o más, pagan según lo felices que bajaron;
+    //     si no, piden devuelto (llegues a la hora o no)
+    let bajan = 0;
+    const subieron = [];
     for (const v of S.vagones) for (let s = 0; s < v.asientos.length; s++) {
       const q = v.asientos[s];
       if (!q) continue;
       v.asientos[s] = null; bajan++;
       if (q.asustado) { S.asustados++; continue; } // asustados no pagan
+      subieron.push(q);
+    }
+    const n = subieron.length;
+    const avg = n ? subieron.reduce((a, q) => a + clamp(q.div, 0, 1), 0) / n : 0;
+    const pct = Math.round(avg * 100);
+    const devolver = n > 0 && avg < C.minDiv;
+    let cobro = 0;
+    if (!devolver) for (const q of subieron) {
       const f = clamp(q.div, 0, 1);
-      suma += f;
-      if (corta || f < 0.3) { devs++; continue; }
+      if (f >= 0.9) S.felices++;
       let pago = 0.25 + 1.0 * f;
-      if (f >= 0.9) { S.felices++; if (q.miedo < 0.3) pago += 0.25; } // propina
+      if (f >= 0.9 && q.miedo < 0.3) pago += 0.25; // propina
       cobro += Math.round(pago * (S.noche ? 1.5 : 1) * 20) / 20;
     }
     if (bajan) {
       S.viajes++;
       S.plata += cobro; S.total += cobro;
-      const alegria = Math.round((suma / bajan) * 100);
       if (cobro > 0) { texto(ESTACION.x, ESTACION.y - 60, '+' + plata(cobro), '#8BD43B', 2); sonar('plata'); }
-      if (devs) {
-        S.devueltos += devs;
-        anunciar(corta ? '¡Muy corto! Devuélvanme la plata' : '¡No nos divertimos! Devuélvanme la plata', '#FF8A7A', 3.5);
-        anunciar(`${devs} piden devuelto · la fila se molesta`, '#fff', 3.5, true);
-        restarConfianza(devs * (corta ? 4 : 6));
+      if (devolver) {
+        S.devueltos += n;
+        anunciar(`Llegaron con ${pct} % de diversión (hacen falta 75 %)`, '#FF8A7A', 3.5);
+        anunciar(`${n} piden devuelto · la fila se molesta`, '#fff', 3.5, true);
+        restarConfianza(n * 6);
         if (S.fin) return;
       } else if (cobro > 0) {
-        anunciar(alegria >= 85 ? '¡Bajaron felices!' : '¡Bajaron contentos!', '#8BD43B', 3);
-        anunciar(`Alegría ${alegria} % · ${plata(cobro)}`, '#fff', 3, true);
+        anunciar(pct >= 99 ? '¡100 %! Bajaron felices' : '¡Bajaron contentos!', '#8BD43B', 3);
+        anunciar(`Diversión ${pct} % · cobraste ${plata(cobro)}${S.noche ? ' (de noche ×1,5)' : ''}`, '#fff', 3, true);
         S.confianza = Math.min(100, S.confianza + 4);
-        sonar('plata');
       } else {
         anunciar('Bajaron asustados', '#FFB3A8', 3);
       }
@@ -618,38 +627,47 @@
   }
 
   // ─── Decidir en la estación: el tiempo se para hasta que digas ¡Vámonos! ─
+  const precioComb = () => 10 + 2 * S.vagones.length;
   function abrirEstacion() {
+    if (S.fin) return;
+    if (S.comb <= 0 && S.plata < precioComb()) { terminar('combustible'); return; }
     S.decidiendo = true; S.corriendo = false; S.vuelta = null; musica(false);
     mostrar('estacion');
     renderTienda();
   }
   function salir() {
-    if (!S.decidiendo || aBordo() === 0) return;
+    if (!S.decidiendo || aBordo() === 0 || S.comb <= 0) return;
+    S.comb--; // cada vuelta gasta una vuelta de combustible
     S.decidiendo = false; S.vuelta = duracionVuelta(); S.viajeT = 0; S.est.carga = -99;
+    if (S.comb === 1) anunciar('Queda 1 vuelta de combustible: pide más en la estación', '#FFB3A8', 3.5, true);
+    if (S.comb === 0) anunciar('Esta es la última vuelta: después hay que pedir combustible', '#FF8A7A', 3.5, true);
     audio(); mostrar(null); S.corriendo = true; musica(true);
   }
 
   const TIENDA = (() => ({
+    combustible: () => ({ nombre: S.comb <= 0 ? 'Combustible (¡hace falta!)' : 'Combustible', nota: `llena el tanque para ${C.combustible} vueltas · tienes ${S.comb}`, coste: precioComb(), hecho: S.comb >= C.combustible }),
     vagon: () => ({ nombre: 'Vagón nuevo', nota: `ahora ${S.vagones.length} · caben ${capacidad() + 4} · más gente, más plata, la cola más brava`, coste: precioVagon(S.vagones.length + 1) }),
-    barras: () => ({ nombre: 'Barras reforzadas', nota: `la cola aguanta ${Math.round((1 + 0.3 * (S.barras + 1) - 1) * 100)} % más`, coste: 30 * (S.barras + 1) }),
+    barras: () => ({ nombre: 'Barras reforzadas', nota: `la cola aguanta ${Math.round((0.3 * (S.barras + 1)) * 100)} % más`, coste: 30 * (S.barras + 1) }),
     parlante: () => ({ nombre: S.parlante ? 'Parlante (ya lo tienes)' : 'Parlante con música', nota: 'la gente se divierte más rápido', coste: 60, hecho: S.parlante }),
     luces: () => ({ nombre: S.luces ? 'Luces de colores (ya las tienes)' : 'Luces de colores', nota: 'puedes jugar de noche, y de noche cobras ×1,5', coste: 50, hecho: S.luces }),
     noche: () => ({ nombre: S.noche ? 'De noche: sí' : 'De noche: no', nota: 'toca para cambiarlo (cobras ×1,5 de noche)', coste: 0, libre: true }),
   }))();
   function renderTienda() {
-    const ids = ['vagon', 'barras', 'parlante', 'luces'];
+    const ids = ['combustible', 'vagon', 'barras', 'parlante', 'luces'];
     if (S.luces) ids.push('noche');
     $('#tienda').innerHTML = ids.map((id) => {
       const it = TIENDA[id](), no = !it.libre && (it.hecho || S.plata < it.coste);
       return `<button class="btn" type="button" data-item="${id}"${no ? ' disabled' : ''}><span>${it.nombre}<small>${it.nota}</small></span>${it.libre || it.hecho ? '' : `<b>${plata(it.coste)}</b>`}</button>`;
     }).join('');
     $('#est-plata').textContent = plata(S.plata);
-    $('#est-resumen').textContent = `Llevas ${aBordo()} pasajeros y el viaje cuesta cuidado: decide antes de salir.`;
+    $('#b-vamonos').disabled = S.comb <= 0 || aBordo() === 0;
+    $('#est-resumen').textContent = S.comb <= 0 ? 'Sin combustible no puedes salir: cómpralo para seguir.' : `Llevas ${aBordo()} pasajeros. Decide antes de salir.`;
   }
   function comprar(id) {
     const it = TIENDA[id]();
     if (!it.libre) { if (it.hecho || S.plata < it.coste) return; S.plata -= it.coste; }
-    if (id === 'vagon') {
+    if (id === 'combustible') { S.comb = C.combustible; sonar('plata'); }
+    else if (id === 'vagon') {
       agregarVagon();
       S.dif = nivelDe(S.vagones.length); S.pico = Math.max(S.pico, S.vagones.length);
       ajustarCaminantes();
@@ -801,7 +819,16 @@
   // ─── Efectos ───────────────────────────────────────────────────────
   function texto(x, y, t, color, dur) { S.textos.push({ x, y, t, color, dur, vida: 0 }); }
   // avisos grandes, fijos arriba en la pantalla (no dependen de hacia dónde mire la cámara)
-  function anunciar(t, color, dur, chico) { S.anuncios.push({ t, color, dur, vida: 0, chico }); }
+  // Los avisos van en su propia franja, debajo del marcador (no encima del mapa ni del HUD)
+  function anunciar(t, color, dur, chico) {
+    const el = document.createElement('div');
+    el.className = 'aviso' + (chico ? ' aviso--chico' : '');
+    el.style.color = color; el.textContent = t;
+    avisos.appendChild(el);
+    S.anuncios.push({ el, vida: 0, dur });
+    while (S.anuncios.length > 3) { S.anuncios.shift().el.remove(); }
+  }
+  function limpiarAvisos() { for (const a of S.anuncios) a.el.remove(); S.anuncios.length = 0; }
   function confeti(x, y, n) {
     if (quieto) return;
     for (let k = 0; k < n; k++) S.chispas.push({ x, y, vx: azar(-140, 140), vy: azar(-200, -40), vida: 0, dur: azar(0.8, 1.4), c: elige(['#F2E14B', '#E8458B', '#5FB4E6', '#8BD43B', '#fff']), r: azar(2, 4), confeti: true });
@@ -812,7 +839,12 @@
   }
   function efectos(dt) {
     for (let n = S.textos.length - 1; n >= 0; n--) { const t = S.textos[n]; t.vida += dt; if (t.vida > t.dur) S.textos.splice(n, 1); }
-    for (let n = S.anuncios.length - 1; n >= 0; n--) { const t = S.anuncios[n]; t.vida += dt; if (t.vida > t.dur) S.anuncios.splice(n, 1); }
+    for (let n = S.anuncios.length - 1; n >= 0; n--) {
+      const a = S.anuncios[n]; a.vida += dt;
+      const resto = a.dur - a.vida;
+      a.el.style.opacity = Math.min(1, Math.max(0, resto / 0.4));
+      if (resto <= 0) { a.el.remove(); S.anuncios.splice(n, 1); }
+    }
     for (let n = S.chispas.length - 1; n >= 0; n--) {
       const c = S.chispas[n]; c.vida += dt; c.x += c.vx * dt; c.y += c.vy * dt;
       if (c.confeti) c.vy += 300 * dt; else { c.vx *= 0.92; c.vy *= 0.92; }
@@ -971,19 +1003,6 @@
       ctx.fillStyle = t.color; ctx.fillText(t.t, q.x, y);
     }
     ctx.globalAlpha = 1;
-    // avisos grandes, apilados arriba al centro (debajo del HUD)
-    let ay = Math.max(H * 0.24, (cifras.getBoundingClientRect().bottom || 0) + 34);
-    for (const t of S.anuncios) {
-      const tam = t.chico ? Math.round(fuente * 0.7) : Math.round(fuente * 1.25);
-      ctx.font = `900 ${tam}px Montserrat, "Arial Black", sans-serif`;
-      const entra = Math.min(1, t.vida * 5), sale = 1 - Math.max(0, t.vida - t.dur + 0.5) / 0.5;
-      ctx.globalAlpha = Math.max(0, Math.min(entra, sale));
-      ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(30,15,40,.9)'; ctx.strokeText(t.t, W / 2, ay);
-      ctx.fillStyle = t.color; ctx.fillText(t.t, W / 2, ay);
-      ay += tam * 1.35;
-    }
-    ctx.globalAlpha = 1;
-
     // flechas hacia las paradas fuera de pantalla
     if (S.corriendo) flechas();
   }
@@ -1309,32 +1328,53 @@
   }
 
   // ─── HUD ───────────────────────────────────────────────────────────
-  const h = { largo: $('#h-largo'), plata: $('#h-plata'), gente: $('#h-gente'), alegria: $('#h-alegria'), vuelta: $('#h-vuelta'), vidas: $('#h-vidas'), fila: $('#h-fila'), vagon: $('#h-vagon'), vueltas: $('#h-vueltas') };
+  const h = { largo: $('#h-largo'), vueltas: $('#h-vueltas'), comb: $('#h-comb'), plata: $('#h-plata'), vidas: $('#h-vidas'), titulo: $('#h-titulo'), tiempo: $('#h-tiempo-bar'), alegria: $('#h-alegria'), pct: $('#h-alegria-pct'), nota: $('#h-nota'), pie: $('#h-pie') };
   const reloj = (x) => Math.floor(x / 60) + ':' + String(x % 60).padStart(2, '0');
   let hudCache = '';
   function actualizarHud(forzar) {
     let n = 0, cap = 0, div = 0;
     for (const v of S.vagones) for (const p of v.asientos) { cap++; if (p) { n++; div += p.div; } }
-    const vt = S.vuelta === null ? null : Math.ceil(S.vuelta);
-    const clave = [S.vagones.length, S.plata.toFixed(2), n, cap, Math.round(n ? (div / n) * 100 : 0), vt, S.est.fila.length, S.vidas, Math.round(S.confianza), S.viajes, S.vueltasRedondel].join('|');
+    const avg = n ? div / n : 0, pct = Math.round(avg * 100);
+    const vt = S.vuelta, seg = vt === null ? -1 : Math.ceil(vt);
+    const clave = [S.vagones.length, S.plata.toFixed(2), n, cap, pct, seg, S.est.fila.length, S.vidas, Math.round(S.confianza), S.viajes, S.vueltasRedondel, S.comb, S.decidiendo, S.pico].join('|');
     if (clave === hudCache && !forzar) return;
     hudCache = clave;
-    h.largo.firstChild.nodeValue = S.vagones.length;
-    h.plata.firstChild.nodeValue = plata(S.plata);
-    h.gente.textContent = `${n}/${cap} a bordo`;
-    h.alegria.style.width = (n ? (div / n) * 100 : 0) + '%';
-    h.vuelta.textContent = vt === null ? 'En la estación' : vt >= 0 ? 'Vuelta ' + reloj(vt) : '¡Tarde! ' + reloj(-vt);
-    h.vuelta.classList.toggle('poco', vt !== null && vt <= 12);
+    h.largo.textContent = S.vagones.length;
+    h.vueltas.textContent = S.viajes;
+    h.comb.textContent = '●'.repeat(S.comb) + '○'.repeat(Math.max(0, C.combustible - S.comb));
+    h.comb.classList.toggle('mal', S.comb <= 0);
+    h.plata.textContent = plata(S.plata);
     h.vidas.textContent = '♥'.repeat(S.vidas) + '♡'.repeat(Math.max(0, C.vidas - S.vidas));
-    h.fila.textContent = `Fila ${S.est.fila.length} · confianza ${Math.round(S.confianza)} %`;
-    h.vagon.textContent = `Próximo vagón: ${plata(precioVagon(S.vagones.length + 1))} · récord ${S.pico}`;
-    h.vueltas.textContent = `Vueltas ${S.viajes} · redondel ${S.vueltasRedondel}`;
+    // qué pasa ahora y qué hacer
+    let titulo, nota;
+    if (S.decidiendo) {
+      titulo = `En la estación · ${n} a bordo`;
+      nota = S.comb <= 0 ? 'Sin combustible: compra combustible para salir' : 'Decide qué comprar y pulsa ¡Vámonos!';
+    } else if (vt === null) {
+      titulo = `En la estación · fila ${S.est.fila.length}`;
+      nota = 'Estaciónate para subir a la gente';
+    } else if (vt < 0) {
+      titulo = '¡Tarde! · la fila se está yendo';
+      nota = 'Regresa ya a la estación';
+    } else {
+      titulo = `Vuelta · ${reloj(seg)} para volver`;
+      if (n && avg >= 0.995) nota = '¡100 %! Ya se divirtieron: estaciónate y cobra';
+      else if (vt <= 12) nota = '¡Regresa a la estación!';
+      else if (n && avg < C.minDiv) nota = 'Falta diversión: zigzag o redondeles. Menos de 75 % al llegar = devolución';
+      else nota = 'Van bien: regresa antes de que acabe el tiempo';
+    }
+    h.titulo.textContent = titulo; h.nota.textContent = nota;
+    h.tiempo.style.width = vt === null ? '0%' : (clamp(vt / C.vuelta, 0, 1) * 100) + '%';
+    h.tiempo.classList.toggle('poco', vt !== null && vt <= 12);
+    h.alegria.style.width = (n ? pct : 0) + '%';
+    h.alegria.style.background = avg >= 0.995 ? '#F2E14B' : avg >= C.minDiv ? '#8BD43B' : '#F2B33D';
+    h.pct.textContent = n ? pct + ' %' : '—';
+    h.pie.textContent = `Fila ${S.est.fila.length} · confianza ${Math.round(S.confianza)} % · próximo vagón ${plata(precioVagon(S.vagones.length + 1))}`;
   }
 
   // ─── Capas ─────────────────────────────────────────────────────────
   const capas = { inicio: $('#c-inicio'), pausa: $('#c-pausa'), fin: $('#c-fin'), estacion: $('#c-estacion') };
   const hud = $('.hud-juego');
-  const cifras = $('.hud-juego__cifras');
   // Con una capa abierta el HUD queda inerte (ni foco ni clics) y el foco va al botón principal de la
   // capa; así Enter y Espacio siempre hacen lo que dice la capa, y no pausan ni apagan el sonido.
   function mostrar(cual) {
@@ -1358,11 +1398,12 @@
     try { localStorage.setItem('gusanito.largo', mejorLargo); localStorage.setItem('gusanito.vueltas', mejorVueltas); } catch { /* sin almacenamiento */ }
     const vagones = (n) => n + (n === 1 ? ' vagón' : ' vagones');
     const vueltasTxt = (n) => n + (n === 1 ? ' vuelta' : ' vueltas');
-    $('#fin-kicker').textContent = motivo === 'golpes' ? 'Se acabaron las vidas' : motivo === 'partio' ? 'La cola se partió' : 'Nadie quiere subirse';
+    $('#fin-kicker').textContent = motivo === 'golpes' ? 'Se acabaron las vidas' : motivo === 'partio' ? 'La cola se partió' : motivo === 'combustible' ? 'Se quedó sin combustible' : 'Nadie quiere subirse';
     $('#t-fin').textContent = vagones(largo);
     $('#fin-frase').textContent = (motivo === 'golpes'
       ? 'De tanto chocar el gusanito se deshizo. '
       : motivo === 'partio' ? 'Creció tanto que la cola ya no aguantó. '
+      : motivo === 'combustible' ? 'Ya no alcanzó para otra vuelta: tus vueltas son tu récord. '
       : 'La fila perdió la confianza: esperaron mucho o no se divirtieron. ')
       + (largo >= 8 ? '¡Un gusanito de fiesta de verdad!' : largo >= 5 ? 'Buen largo: la fila te quiso.' : 'La próxima, más vagones: junta más plata.');
     $('#r-viajes').textContent = vueltasTxt(vueltas); $('#r-redondel').textContent = S.vueltasRedondel;
