@@ -42,10 +42,12 @@
     vuelta: 60,             // segundos de cada vuelta; siempre el mismo tiempo, tenga el largo que tenga
     filaMax: 30,            // cuánta gente cabe en la fila de la estación
     camGiro: 3.5,           // qué tan rápido gira la cámara para seguir a la cabeza (1/s)
-    // turbo: mientras dura, la velocidad máxima sube (× C.turbo) y acelera más fuerte. Cada toque dura al menos
-    // C.turboMin s; manteniéndolo, sigue mientras quede carga. Una carga llena dura C.turboDura s y se llena
-    // sola en C.turboRecarga s (y del todo en la estación). Agotada, vuelve a servir desde C.turboVuelve.
-    turbo: 1.3, turboAcel: 1.8, turboMin: 0.8, turboDura: 4, turboRecarga: 9, turboVuelve: 0.25,
+    // acelerador: sin pisarlo el gusanito va a su velocidad normal; pisándolo, la máxima sube (× C.turbo) y
+    // acelera más fuerte (× C.turboAcel). Sin límite: el riesgo es lo que cuesta
+    turbo: 1.3, turboAcel: 1.8,
+    // mareo: desde la vuelta C.mareoDesde seguida en un redondel, cada vuelta más marea y baja la diversión
+    // (C.mareo por vuelta) en lugar de dar plata. Se les pasa tras C.mareoOlvida s fuera de los redondeles
+    mareoDesde: 3, mareo: 0.15, mareoOlvida: 8,
   };
 
   // ─── El gusanito crece con la plata, y con cada vagón el juego se pone más bravo ─
@@ -423,7 +425,7 @@
       // vuelta: segundos que le quedan a la vuelta con los pasajeros (null = no hay vuelta en curso)
       vuelta: null, avisos: {}, primera: true,
       est: { carga: 0, t: 0, llegaT: 0, fila: [] },
-      turbo: { carga: 1, activo: false, resto: 0, agotado: false, antes: false, sostiene: false, humo: 0 },
+      turbo: { activo: false, antes: false, humo: 0 }, giros: 0, sinRedondel: 0,
     };
     for (let k = 0; k < S.dif.vagones; k++) agregarVagon();
     for (let k = 0; k < 12; k++) S.est.fila.push(nuevoPasajero());
@@ -554,19 +556,13 @@
     k.ang += vuelta(Math.atan2(ty - k.y, tx - k.x) - k.ang) * Math.min(1, 2.5 * A * dt);
   }
 
-  // Turbo: cada toque empuja al menos C.turboMin s; mantenido, sigue mientras quede carga. Frenar lo corta.
+  // Acelerador: mientras lo pisas va más rápido; al soltarlo vuelve a su velocidad normal. Frenar le gana.
   function turbo(dt) {
     const T = S.turbo, quiere = entrada.turbo && !entrada.freno;
-    // cada toque nuevo arranca (si hay carga); mantenerlo sigue, pero agotado hay que soltar y volver a tocar
-    if (quiere && !T.antes && !T.agotado && T.carga > 0) { T.resto = C.turboMin; T.sostiene = true; if (!T.activo) sonar('turbo'); }
-    if (!quiere) T.sostiene = false;
+    if (quiere && !T.antes) sonar('turbo');
     T.antes = quiere;
-    if (entrada.freno) T.resto = 0;
-    T.activo = !T.agotado && T.carga > 0 && (T.sostiene || T.resto > 0);
+    T.activo = quiere;
     if (T.activo) {
-      T.carga = Math.max(0, T.carga - dt / C.turboDura);
-      T.resto -= dt;
-      if (T.carga <= 0) { T.agotado = true; T.activo = false; T.resto = 0; T.sostiene = false; }
       // humito por los dos escapes de atrás
       const k = S.cab, fx = Math.cos(k.ang), fy = Math.sin(k.ang);
       if (!quieto && (T.humo -= dt) <= 0) {
@@ -576,10 +572,6 @@
           S.chispas.push({ x, y, vx: -fx * 70 - fy * lado * 30 + azar(-15, 15), vy: -fy * 70 + fx * lado * 30 + azar(-15, 15), vida: 0, dur: 0.45, c: 'rgba(215,215,225,.75)', r: azar(3, 6) });
         }
       }
-    } else {
-      T.carga = Math.min(1, T.carga + dt / C.turboRecarga);
-      T.resto = 0;
-      if (T.agotado && T.carga >= C.turboVuelve) T.agotado = false;
     }
   }
 
@@ -738,7 +730,7 @@
 
   // ─── Pasajeros: se divierten con el meneo, se asustan con el latigazo ─
   function pasajeros(dt) {
-    const extra = enRedondel(S.cab.x, S.cab.y, 30) ? 1.5 : 1; // dar vueltas en un redondel divierte más
+    const extra = enRedondel(S.cab.x, S.cab.y, 30) ? (S.giros >= C.mareoDesde ? 0 : 1.5) : 1; // el redondel divierte más… hasta que marea
     const dil = clamp(1 / (1 + Math.max(0, aBordo() - 4) * 0.08), 0.4, 1); // más gente, más difícil divertirlos
     const lento = Math.abs(S.cab.v) < 30 && S.parando <= 0;
     const d = S.dif;
@@ -913,7 +905,6 @@
     if (S.fin) return;
     if (S.comb <= 0 && S.plata < precioComb()) { terminar('combustible'); return; }
     S.decidiendo = true; S.corriendo = false; S.vuelta = null; musica(false);
-    Object.assign(S.turbo, { carga: 1, agotado: false, activo: false, resto: 0, sostiene: false }); // en la estación se llena el turbo
     mostrar('estacion');
     renderTienda();
   }
@@ -952,7 +943,7 @@
   function salir() {
     if (!S.decidiendo || aBordo() === 0 || S.comb <= 0) return;
     S.comb--; // cada vuelta gasta una vuelta de combustible
-    S.decidiendo = false; S.vuelta = duracionVuelta(); S.viajeT = 0; S.est.carga = -99; S.listos = false;
+    S.decidiendo = false; S.vuelta = duracionVuelta(); S.viajeT = 0; S.est.carga = -99; S.listos = false; S.giros = 0;
     cerrarCalles();
     if (S.comb === 1) anunciar('Queda 1 vuelta de combustible: pide más en la estación', '#FFB3A8', 3.5, true);
     if (S.comb === 0) anunciar('Esta es la última vuelta: después hay que pedir combustible', '#FF8A7A', 3.5, true);
@@ -1011,11 +1002,17 @@
     renderTienda();
   }
 
-  // Vueltas al redondel: una vuelta completa por dentro de un redondel da puntos extra (de noche, más)
-  function contarRedondel() {
+  // Vueltas al redondel: una vuelta completa por dentro de un redondel da puntos extra (de noche, más),
+  // pero desde la vuelta C.mareoDesde seguida la gente se marea
+  function contarRedondel(dt) {
     const k = S.cab;
     const r = redondeles.find((q) => { const d = Math.hypot(k.x - q.x, k.y - q.y); return d > q.isla + 25 && d < q.R - 10; });
-    if (!r) { S.ronda = null; return; }
+    if (!r) {
+      S.ronda = null;
+      if (S.giros && (S.sinRedondel += dt) >= C.mareoOlvida) S.giros = 0; // se les pasa el mareo
+      return;
+    }
+    S.sinRedondel = 0;
     const a = Math.atan2(k.y - r.y, k.x - r.x);
     if (!S.ronda || S.ronda.r !== r) { S.ronda = { r, last: a, acc: 0 }; return; }
     let d = a - S.ronda.last; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
@@ -1023,6 +1020,15 @@
     if (Math.abs(S.ronda.acc) >= 2 * Math.PI) {
       S.ronda.acc -= Math.sign(S.ronda.acc) * 2 * Math.PI;
       S.vueltasRedondel++;
+      S.giros++;
+      if (S.giros >= C.mareoDesde && aBordo() > 0) { // ¡ya marea! baja la diversión y no hay bono
+        S.listos = false;
+        for (const v of S.vagones) for (const p of v.asientos) if (p) { p.div = Math.max(0, p.div - C.mareo); p.feliz = p.div >= 1 && p.feliz; }
+        texto(k.x, k.y - 50, elige(['¡Me mareo!', '¡Ya no más vueltas!', '¡Qué mareo!', '¡Bájenme!']), '#C6F08A', 1.8);
+        if (S.giros === C.mareoDesde) anunciar('¡Se marean! Sal del redondel y haz otra cosa', '#C6F08A', 3, true);
+        sonar('tarde');
+        return;
+      }
       const bono = Math.round((0.5 + 0.1 * aBordo()) * (S.noche ? 1.5 : 1) * 100) / 100;
       S.plata += bono; S.total += bono;
       texto(k.x, k.y - 50, `¡Vuelta al redondel! +${plata(bono)}`, '#F2E14B', 1.8);
@@ -1197,7 +1203,7 @@
       turbo(dt);
       for (let s = 0; s < sub; s++) { moverCabeza(h); moverVagones(h); }
       pasajeros(dt); estacion(dt); caminantes(dt);
-      romperSiHaceFalta(); colaAviso(); contarRedondel();
+      romperSiHaceFalta(); colaAviso(); contarRedondel(dt);
       if (S.rompiendo > 0 && (S.rompiendo -= dt) <= 0) terminar('partio');
       actualizarHud();
     } else S.turbo.activo = false;
@@ -1242,7 +1248,7 @@
     while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
     S.cam.ang += da * Math.min(1, dt * C.camGiro);
     camRot = -Math.PI / 2 - S.cam.ang;
-    // con el turbo la cámara se aleja un poco: se ve más camino
+    // acelerando, la cámara se aleja un poco: se ve más camino
     const meta = clamp((k.v - S.dif.vMax) / (S.dif.vMax * (C.turbo - 1)), 0, 1);
     rapidez += (meta - rapidez) * Math.min(1, dt * 3);
     zoom = zoomBase * (quieto ? 1 : 1 - 0.1 * rapidez);
@@ -1695,7 +1701,7 @@
       ctx.fillStyle = '#F2E14B'; ctx.beginPath(); ctx.arc(42, sy * 26 + bam, 5, 0, 7); ctx.fill();
       ctx.fillStyle = '#E8458B'; ctx.beginPath(); ctx.arc(43, sy * 26 + bam - 1, 2, 0, 7); ctx.fill();
     }
-    // turbo: llamitas en los dos escapes de atrás
+    // acelerando: llamitas en los dos escapes de atrás
     if (S.turbo.activo) {
       const fl = quieto ? 1 : 0.75 + Math.random() * 0.5;
       for (const sy of [-1, 1]) {
@@ -1837,16 +1843,13 @@
     h.vidas.textContent = '♥'.repeat(S.vidas) + '♡'.repeat(Math.max(0, C.vidas - S.vidas));
   }
 
-  // El botón Turbo se llena con la carga; agotado, se apaga hasta que vuelve a servir
+  // El botón Acelera se ilumina mientras lo pisas
   const bTurbo = $('#m-turbo');
-  let turboCache = '';
+  let turboCache = null;
   function hudTurbo() {
-    const T = S.turbo, pct = Math.round(T.carga * 50) * 2, clave = pct + (T.activo ? 'a' : '') + (T.agotado ? 'x' : '');
-    if (clave === turboCache) return;
-    turboCache = clave;
-    bTurbo.style.setProperty('--carga', pct + '%');
-    bTurbo.classList.toggle('activo', T.activo);
-    bTurbo.classList.toggle('agotado', T.agotado);
+    if (S.turbo.activo === turboCache) return;
+    turboCache = S.turbo.activo;
+    bTurbo.classList.toggle('activo', S.turbo.activo);
   }
 
   // ─── Capas ─────────────────────────────────────────────────────────
@@ -1933,7 +1936,7 @@
   bFreno.addEventListener('pointerdown', (e) => { e.preventDefault(); botonFreno = true; bFreno.classList.add('activo'); bFreno.setPointerCapture?.(e.pointerId); });
   for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) bFreno.addEventListener(ev, () => { botonFreno = false; bFreno.classList.remove('activo'); });
   bFreno.addEventListener('contextmenu', (e) => e.preventDefault());
-  // el botón Turbo (junto al freno); la carga se pinta en el botón (hudTurbo)
+  // el botón Acelera (junto al freno)
   bTurbo.addEventListener('pointerdown', (e) => { e.preventDefault(); botonTurbo = true; bTurbo.setPointerCapture?.(e.pointerId); });
   for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) bTurbo.addEventListener(ev, () => { botonTurbo = false; });
   bTurbo.addEventListener('contextmenu', (e) => e.preventDefault());

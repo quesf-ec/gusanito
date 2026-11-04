@@ -15,7 +15,10 @@ en una.red, no aquí.
 - El gusanito arranca **estacionado en la estación del Parque Central**, con 2 vagones. La gente hace fila y se sube.
 - **Cada vuelta dura 60 s, siempre lo mismo** (`C.vuelta`), tenga el largo que tenga. Regresa a la estación
   antes de que se acabe. Si te demoras, la fila se cansa y **se va** (cada uno baja la **confianza**).
-- **La diversión es lo que cuenta**. Zigzag y **redondeles** (ahí el meneo vale ×1,5). Entre más gente a
+- **La diversión es lo que cuenta**. Zigzag y **redondeles** (ahí el meneo vale ×1,5). Pero **desde la tercera
+  vuelta seguida a un redondel se marean** (`C.mareoDesde`): cada vuelta más les baja 15 % de diversión
+  (`C.mareo`), no da bono y les quita el 100 %. Se les pasa después de 8 s fuera de los redondeles
+  (`C.mareoOlvida`) o al salir de nuevo de la estación. Entre más gente a
   bordo, más cuesta divertirlos: cada pasajero por encima de 4 resta un 8 % de velocidad, hasta un 60 % menos.
 - **Para cobrar, el grupo tiene que llegar con 75 % de diversión o más.** Si no, **piden devuelto**, llegues
   a tiempo o no: no pagan y la fila se molesta.
@@ -65,15 +68,13 @@ en una.red, no aquí.
 - **Mandos**: el gusanito acelera solo. En el celular, **toca y mantén la mitad izquierda o derecha de la
   pantalla** para girar (si el dedo cruza al otro lado, cambia el giro). Para frenar, el botón **Freno** abajo
   al centro, o los dos lados a la vez; **si ya estás parado, el freno va en reversa** (despacio). En la
-  computadora, **← →** para girar, **↓ / espacio** para frenar o retroceder y **↑ / W** para el turbo. **P** o
+  computadora, **← →** para girar, **↓ / espacio** para frenar o retroceder y **↑ / W** para acelerar. **P** o
   **Esc** para pausar.
-- **Turbo**: el botón **Turbo**, junto al freno, o **↑**. Mientras dura, la velocidad máxima sube un 30 %
-  (`C.turbo`) y acelera más fuerte. Con más velocidad el mismo zigzag empuja más: divierte más rápido, pero
-  asusta, cansa la cola y en las esquinas cuesta más girar. Sirve también para volver a tiempo. Cada toque dura
-  al menos 0,8 s y, si lo mantienes, sigue mientras quede **carga**: una carga llena dura 4 s, se recarga sola
-  en 9 s y se llena del todo en la estación. La carga se ve en el mismo botón. Si se agota, hay que esperar a
-  que se recargue un poco y volver a tocar. Frenar lo corta. Mientras dura, la cámara se aleja un poco, hay
-  rayas de velocidad y llamitas en los escapes (con «reducir movimiento» no hay ni rayas ni zoom).
+- **Acelerador**: el botón **Acelera**, junto al freno, o **↑**. Sin pisarlo, el gusanito va solo a su velocidad
+  normal; mientras lo mantienes, la máxima sube un 30 % (`C.turbo`) y acelera más fuerte. No se gasta: lo que
+  cuesta es el riesgo. Con más velocidad el mismo zigzag empuja más: divierte más rápido, pero asusta, cansa la
+  cola y en las esquinas cuesta más girar. Frenar le gana. Acelerando, la cámara se aleja un poco y hay rayas de
+  velocidad y llamitas en los escapes (con «reducir movimiento», sin rayas ni zoom).
 - **Gira como los de verdad**: la cabeza es un carro, así que necesita espacio para girar (tiene un radio
   mínimo) y quieto no gira; para salir de una pared, retrocede un poco. Cada vagón es un remolque de dos ejes:
   la lanza tira del eje delantero, que gira con ella (se ven las llantas delanteras girar), y el de atrás sigue.
