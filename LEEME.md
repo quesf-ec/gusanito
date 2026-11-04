@@ -31,8 +31,8 @@ presentación va en una.red, no aquí.
   gusanito se acaba cuando:
   - **La cola se parte**: cada barra se cansa cuando la sacudida de la cola pasa de lo que aguanta
     (`C.aguanta`), y se recupera cuando no. Si una se cansa del todo, se suelta todo lo de atrás (con su
-    gente, que se cae) y se acaba. Con zigzag amplio, la cola se empieza a partir hacia los 10 vagones;
-    con zigzag suave y pocos vagones, no se parte. Las barras se ponen rosas y luego amarillas cuando
+    gente, que se cae) y se acaba. Medido sin paredes: con 4 u 8 vagones no se partió en 25 s de zigzag;
+    con 10 vagones y zigzag amplio la cola llega casi al límite; con 12 vagones se partió en 2,5 a 3,9 s. Las barras se ponen rosas y luego amarillas cuando
     se cansan, y aparece el aviso «la cola está a punto de partirse».
   - **Te quedan sin vidas** (♥♥♥): tres golpes contra casas, árboles, el kiosco o el borde. Cada golpe
     **suelta el último vagón** (con su gente, que se cae) y le baja la confianza a la fila. Con dos
@@ -91,9 +91,9 @@ HUD y las capas.
   dejaba la trompa pegada sin poder girar para salir.
 - **La cola y su fatiga**: cada barra mide la sacudida que le llega (`v.g`, la misma que siente la gente).
   Mientras pasa de `C.aguanta`, se cansa (`v.fatiga`); cuando llega a 1, `romperSiHaceFalta()` parte la
-  cola y `terminar('partio')` acaba la partida con el pico. `C.inercia` es el mando de lo inestable:
-  con 0,92 la cola se mueve bastante con pocos vagones y mucho más con muchos; con 0,95 ya se parte con
-  6 vagones en zigzag rápido, y con 0,90 casi no se parte.
+  cola y `terminar('partio')` acaba la partida con el pico. `C.inercia` es el mando de lo inestable: con 0,92 (el valor actual) la cola crece sin tope pero se
+  aguanta hasta unos 10 vagones; con 0,95, con 12 vagones se partió en 2,5 a 3,9 s. Es el primer número
+  que moveré si quieres más o menos riesgo.
 - **Golpes y confianza**: un golpe fuerte (`estrellar()`) quita una vida, suelta el último vagón y baja la
   confianza. Los golpes de frente cuentan; los roces no. `restarConfianza()` es el único lugar donde se
   decide que la fila se va: si llega a 0, se acaba la partida.
