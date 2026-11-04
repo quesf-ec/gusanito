@@ -18,7 +18,12 @@ página de presentación con el juego embebido, igual que en los otros juegos de
 - Si te pasas, se asustan (gotita azul) y, con latigazos muy fuertes, **salen volando** (−$1).
 - Los felices (corazón) se bajan en la siguiente parada y pagan $1, con propina si no se asustaron.
   Cada 8 felices se engancha **un vagón más** (hasta 8): más plata, pero la cola es más brava.
-- Chocar contra las casas asusta a todos; topar a los **danzantes** o a los **perros** cuesta $0,50.
+- Chocar contra las casas asusta a todos; topar a los **danzantes** cuesta $0,50.
+- Los **perros** salen corriendo a ladrarle al gusanito y lo acompañan un rato a su lado: cuando llegan
+  a la par de la trompa, el chofer se asusta y frena de golpe, y la gente se asusta un poco. Pero nunca
+  los puedes pisar: siempre se apartan.
+- La **cámara gira con la cabeza**: la trompa siempre apunta hacia arriba, así ◀ ▶ siempre son izquierda
+  y derecha en la pantalla, vaya hacia donde vaya el gusanito.
 - La vuelta dura 2 minutos.
 
 ## Cómo está hecho
@@ -26,13 +31,19 @@ página de presentación con el juego embebido, igual que en los otros juegos de
 Todo en `juego/gusanito.js`, en canvas 2D, sin dependencias aparte del sistema de diseño MAL para el
 HUD y las capas.
 
-- **La cabeza** es un carro simple: acelera sola, gira menos cuando va lento.
+- **La cabeza** es un carro simple: acelera sola, gira menos cuando va lento. La cámara la sigue
+  pegada y gira con ella (`C.camGiro`); en el celular vertical la cabeza va más arriba para que los
+  mandos no tapen la cola.
 - **Cada vagón** cuelga del de adelante con una barra de largo fijo que no dobla más de `C.dobla`.
   Conserva parte de su impulso (`C.inercia`) y sus llantas frenan el deslizamiento de costado
   (`C.agarre`). Por eso el zigzag del chofer se propaga y crece un poco hacia la cola.
 - **Lo que siente el pasajero** es el empujón de costado: rapidez del vagón × lo que gira, más el
   deslizamiento. Entre `C.divDesde` y `C.miedoDesde` divierte, más arriba asusta y sobre `C.caidaDesde`
   alguien puede salir volando.
+
+- **Los perros** pasean de esquina en esquina; si el gusanito pasa rápido cerca, salen corriendo a su
+  lado, ladran, y luego se van de costado. Después de moverse, `apartarDelGusano()` los empuja fuera de
+  la cabeza y los vagones, así que nunca quedan debajo.
 
 Todos los ajustes están en el objeto `C` al inicio del archivo. Desde la consola del navegador,
 `gusanito.C` y `gusanito.S` dejan cambiarlos y mirar el estado en vivo; `gusanito.C.fantasma = true`

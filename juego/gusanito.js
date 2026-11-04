@@ -24,6 +24,8 @@
     ritmoDiv: 0.2,          // qué tan rápido se llena la diversión con meneo fuerte (por segundo)
     tiempo: 120,
     paradasActivas: 4,
+    camGiro: 3.5,           // qué tan rápido gira la cámara para seguir a la cabeza (1/s)
+    perros: 8,
   };
 
   const PALETAS = [
@@ -145,12 +147,12 @@
       corriendo: false, fin: false,
       cab: { x: x0, y: y0, ang: -Math.PI / 2, v: 0, giro: 0, golpe: 0, enfriar: 0 },
       vagones: [], paradas: [], caminantes: [], volando: [], textos: [], chispas: [],
-      cam: { x: x0, y: y0 }, parando: 0, sigCrece: C.felicesPorVagon, avisoT: 0,
+      cam: { x: x0, y: y0, ang: -Math.PI / 2 }, parando: 0, sigCrece: C.felicesPorVagon, avisoT: 0, sustoT: 0, ladridoT: 0,
     };
     for (let k = 0; k < C.vagonesIni; k++) agregarVagon();
     for (let k = 0; k < C.paradasActivas; k++) nuevaParada();
     for (let k = 0; k < 4; k++) S.caminantes.push(nuevoCaminante('danzante'));
-    for (let k = 0; k < 5; k++) S.caminantes.push(nuevoCaminante('perro'));
+    for (let k = 0; k < C.perros; k++) S.caminantes.push(nuevoCaminante('perro'));
     actualizarHud(true);
   }
 
@@ -187,9 +189,31 @@
   }
   function nuevoCaminante(tipo) {
     const e = esquinaAzar();
-    const c = { tipo, x: e.x, y: e.y, dest: null, v: tipo === 'perro' ? azar(55, 80) : azar(22, 32), t: Math.random() * 9, parado: 0 };
+    if (tipo === 'perro') {
+      const c = { tipo, x: e.x + azar(-60, 60), y: e.y + azar(-60, 60), ang: azar(-3, 3), t: Math.random() * 9,
+        v: azar(55, 80), modo: 'pasea', tm: 0, ruta: [], parado: 0, ladra: 0, enfriar: azar(0, 4), lado: 1 };
+      c.px = c.x; c.py = c.y;
+      rutaPerro(c);
+      return c;
+    }
+    const c = { tipo, x: e.x, y: e.y, dest: null, v: azar(22, 32), t: Math.random() * 9, parado: 0 };
     siguienteEsquina(c);
     return c;
+  }
+  // Un perro pasea: va a la esquina más cercana y de ahí a un punto de la cuadra, pegado a la vereda
+  function rutaPerro(c) {
+    const ex = clamp(Math.round((c.x - C.calle / 2) / paso), 0, C.cols) * paso + C.calle / 2;
+    const ey = clamp(Math.round((c.y - C.calle / 2) / paso), 0, C.filas) * paso + C.calle / 2;
+    const op = [];
+    if (ex - paso > 0) op.push([-1, 0]);
+    if (ex + paso < ANCHO) op.push([1, 0]);
+    if (ey - paso > 0) op.push([0, -1]);
+    if (ey + paso < ALTO) op.push([0, 1]);
+    const [dx, dy] = elige(op), f = azar(0.2, 0.8), lado = (Math.random() < 0.5 ? -1 : 1) * azar(45, 80);
+    c.ruta = [
+      { x: ex + azar(-40, 40), y: ey + azar(-40, 40) },
+      { x: ex + dx * paso * f + dy * lado, y: ey + dy * paso * f + dx * lado },
+    ];
   }
   function siguienteEsquina(c) {
     const op = [];
@@ -417,8 +441,10 @@
 
   function caminantes(dt) {
     const k = S.cab;
+    S.sustoT -= dt; S.ladridoT -= dt;
     for (const c of S.caminantes) {
       c.t += dt;
+      if (c.tipo === 'perro') { perro(c, dt); continue; }
       if (c.parado > 0) { c.parado -= dt; continue; }
       const dx = c.dest.x - c.x, dy = c.dest.y - c.y, d = Math.hypot(dx, dy);
       if (d < 4) { c.x = c.dest.x; c.y = c.dest.y; siguienteEsquina(c); if (c.tipo === 'perro' && Math.random() < 0.3) c.parado = azar(1, 3); continue; }
@@ -427,14 +453,100 @@
       // ¿lo topa la cabeza?
       const ox = c.x + (c.dy || 0) * c.off, oy = c.y - (c.dx || 0) * c.off;
       c.px = ox; c.py = oy;
-      const r = c.tipo === 'perro' ? 14 : 34;
-      if (Math.hypot(ox - k.x, oy - k.y) < r + C.cabezaA / 2 && k.enfriar <= 0 && Math.abs(k.v) > 30) {
+      if (Math.hypot(ox - k.x, oy - k.y) < 34 + C.cabezaA / 2 && k.enfriar <= 0 && Math.abs(k.v) > 30) {
         k.v = 0;
         S.plata -= 0.5;
-        chocar(150, ox, oy, c.tipo === 'perro' ? '¡Guau! −$0,50' : '¡Cuidado con los danzantes! −$0,50');
+        chocar(150, ox, oy, '¡Cuidado con los danzantes! −$0,50');
         c.parado = 1.5;
       }
     }
+  }
+
+  // Los perros salen corriendo a ladrarle al gusanito, lo acompañan un rato a su lado y se van.
+  // Asustan al chofer (frena de golpe) y a la gente, pero nunca se dejan pisar.
+  function perro(c, dt) {
+    const k = S.cab;
+    const fx = Math.cos(k.ang), fy = Math.sin(k.ang);
+    const rx = c.x - k.x, ry = c.y - k.y, d = Math.hypot(rx, ry);
+    c.ladra = Math.max(0, c.ladra - dt);
+    c.enfriar -= dt;
+    let tx, ty, vel;
+    if (c.modo === 'pasea') {
+      if (k.v > 60 && d < 240 && c.enfriar <= 0) {
+        // ¡sale corriendo! se pone del lado en que estaba
+        c.modo = 'persigue'; c.tm = azar(1.8, 3.2);
+        c.lado = Math.sign(fx * ry - fy * rx) || 1;
+        c.ladra = 0.5; c.asusto = false;
+      } else if (c.parado > 0) c.parado -= dt; // se sienta un rato
+      else {
+        const m = c.ruta[0];
+        if (!m) { rutaPerro(c); if (Math.random() < 0.4) c.parado = azar(1, 3); }
+        else if (Math.hypot(m.x - c.x, m.y - c.y) < 6) c.ruta.shift();
+        else { tx = m.x; ty = m.y; vel = c.v; }
+      }
+    }
+    if (c.modo === 'persigue') {
+      c.tm -= dt;
+      // corre al lado de la cabeza, ladrando
+      const lejos = C.cabezaA / 2 + 34;
+      tx = k.x - fy * c.lado * lejos + fx * 10; ty = k.y + fx * c.lado * lejos + fy * 10;
+      vel = Math.min(320, Math.hypot(tx - c.x, ty - c.y) * 5);
+      // cuando llega a la par de la trompa, el chofer se asusta
+      if (!c.asusto && d < 110) { c.asusto = true; sustoPerro(c); }
+      if (Math.random() < dt * 2.5) { c.ladra = 0.35; if (S.ladridoT <= 0) { S.ladridoT = 0.9; sonar('ladrido'); } }
+      if (c.tm <= 0 || k.v < 40) { c.modo = 'huye'; c.tm = azar(1.2, 1.8); }
+    }
+    if (c.modo === 'huye') {
+      c.tm -= dt;
+      // se va de costado, lejos de la trompa
+      tx = c.x - fy * c.lado * 100 - fx * 30; ty = c.y + fx * c.lado * 100 - fy * 30;
+      vel = 200;
+      if (c.tm <= 0) { c.modo = 'pasea'; c.enfriar = azar(4, 8); rutaPerro(c); }
+    }
+    if (tx !== undefined) {
+      const mx = tx - c.x, my = ty - c.y, md = Math.hypot(mx, my);
+      if (md > 0.5) {
+        const paso = Math.min(md, vel * dt);
+        c.x += mx / md * paso; c.y += my / md * paso;
+        let da = Math.atan2(my, mx) - c.ang;
+        while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+        c.ang += da * Math.min(1, dt * 10);
+      }
+    }
+    resolver(c, 10);
+    apartarDelGusano(c, 12);
+    c.px = c.x; c.py = c.y;
+  }
+
+  // Empuja algo redondo fuera de la cabeza y los vagones (la cabeza manda: nunca lo pisa)
+  function apartarDelGusano(o, r) {
+    const k = S.cab, fx = Math.cos(k.ang), fy = Math.sin(k.ang);
+    const media = C.cabezaL / 2 - C.cabezaA / 2;
+    const cuerpos = [
+      { x: k.x + fx * 36, y: k.y + fy * 36, r: 14 },
+      { x: k.x + fx * media, y: k.y + fy * media, r: C.cabezaA / 2 },
+      { x: k.x - fx * media, y: k.y - fy * media, r: C.cabezaA / 2 },
+    ];
+    for (const v of S.vagones) cuerpos.push({ x: v.x, y: v.y, r: C.vagonA / 2 + 4 });
+    for (let it = 0; it < 2; it++) {
+      for (const b of cuerpos) {
+        let dx = o.x - b.x, dy = o.y - b.y, d = Math.hypot(dx, dy);
+        const min = b.r + r + 3;
+        if (d >= min) continue;
+        if (d < 0.01) { dx = -fy; dy = fx; d = 1; }
+        o.x = b.x + dx / d * min; o.y = b.y + dy / d * min;
+      }
+    }
+  }
+
+  function sustoPerro(c) {
+    if (S.sustoT > 0) return;
+    S.sustoT = 2;
+    const k = S.cab;
+    k.v *= 0.6; k.golpe = Math.max(k.golpe, 0.5);
+    for (const v of S.vagones) for (const p of v.asientos) if (p) p.miedo += 0.12;
+    texto(c.x, c.y, elige(['¡Guau, guau!', '¡Guau!', '¡Grrr… guau!']), '#fff', 1.2);
+    sonar('ladrido');
   }
 
   // ─── Efectos ───────────────────────────────────────────────────────
@@ -448,7 +560,7 @@
     for (let k = 0; k < n; k++) S.chispas.push({ x, y, vx: azar(-80, 80), vy: azar(-80, 80), vida: 0, dur: azar(0.4, 0.8), c: 'rgba(230,220,200,.8)', r: azar(4, 9) });
   }
   function efectos(dt) {
-    for (let n = S.textos.length - 1; n >= 0; n--) { const t = S.textos[n]; t.vida += dt; t.y -= 30 * dt; if (t.vida > t.dur) S.textos.splice(n, 1); }
+    for (let n = S.textos.length - 1; n >= 0; n--) { const t = S.textos[n]; t.vida += dt; if (t.vida > t.dur) S.textos.splice(n, 1); }
     for (let n = S.chispas.length - 1; n >= 0; n--) {
       const c = S.chispas[n]; c.vida += dt; c.x += c.vx * dt; c.y += c.vy * dt;
       if (c.confeti) c.vy += 300 * dt; else { c.vx *= 0.92; c.vy *= 0.92; }
@@ -487,25 +599,44 @@
     lienzo.width = W * dpr; lienzo.height = H * dpr;
     zoom = clamp(Math.min(W, H) / 560, 0.62, 1.5);
     if (W > H * 1.4) zoom = clamp(H / 520, 0.55, 1.5);
+    PIVOTE = H > W ? 0.54 : 0.64;
   }
   addEventListener('resize', medir);
 
   function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
 
+  // La cámara va pegada a la cabeza y gira con ella: la trompa siempre apunta hacia arriba,
+  // así ◀ ▶ siempre son izquierda y derecha en la pantalla, vaya hacia donde vaya el gusanito.
+  // altura de la pantalla donde va la cabeza: más abajo se ve más camino, más arriba se ve la cola
+  // (en el celular vertical los mandos tapan la parte de abajo)
+  let PIVOTE = 0.64;
+  let camRot = 0;
+  function aPantalla(x, y) {
+    const dx = (x - S.cam.x) * zoom, dy = (y - S.cam.y) * zoom;
+    const c = Math.cos(camRot), s = Math.sin(camRot);
+    return { x: W / 2 + dx * c - dy * s, y: H * PIVOTE + dx * s + dy * c };
+  }
+
   function dibujar(dt) {
     const k = S.cab;
-    const mira = 0.7;
-    const tx = k.x + Math.cos(k.ang) * k.v * mira, ty = k.y + Math.sin(k.ang) * k.v * mira;
-    S.cam.x += (tx - S.cam.x) * Math.min(1, dt * 3);
-    S.cam.y += (ty - S.cam.y) * Math.min(1, dt * 3);
+    S.cam.x += (k.x - S.cam.x) * Math.min(1, dt * 10);
+    S.cam.y += (k.y - S.cam.y) * Math.min(1, dt * 10);
+    let da = k.ang - S.cam.ang;
+    while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+    S.cam.ang += da * Math.min(1, dt * C.camGiro);
+    camRot = -Math.PI / 2 - S.cam.ang;
     let sx = 0, sy = 0;
     if (k.golpe > 0 && !quieto) { sx = azar(-6, 6) * k.golpe; sy = azar(-6, 6) * k.golpe; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = '#3E7A3A';
     ctx.fillRect(0, 0, W, H);
-    ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, dpr * (W / 2 - S.cam.x * zoom + sx), dpr * (H / 2 - S.cam.y * zoom + sy));
-    const vis = { x0: S.cam.x - W / 2 / zoom - 60, y0: S.cam.y - H / 2 / zoom - 60, x1: S.cam.x + W / 2 / zoom + 60, y1: S.cam.y + H / 2 / zoom + 60 };
-    const ve = (x, y, w, h) => x + w > vis.x0 && x < vis.x1 && y + h > vis.y0 && y < vis.y1;
+    ctx.translate(W / 2 + sx, H * PIVOTE + sy);
+    ctx.rotate(camRot);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-S.cam.x, -S.cam.y);
+    // lo que cabe en pantalla gire como gire: un cuadrado alrededor de la cabeza
+    const R = Math.hypot(W / 2, H * Math.max(PIVOTE, 1 - PIVOTE)) / zoom + 60;
+    const ve = (x, y, w, h) => x + w > S.cam.x - R && x < S.cam.x + R && y + h > S.cam.y - R && y < S.cam.y + R;
 
     // calles
     ctx.fillStyle = '#56565C';
@@ -551,18 +682,21 @@
     // efectos
     for (const c of S.chispas) { ctx.globalAlpha = 1 - c.vida / c.dur; ctx.fillStyle = c.c; ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 7); ctx.fill(); }
     ctx.globalAlpha = 1;
+
+    // textos derechos en la pantalla, aunque el pueblo esté girado
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const fuente = Math.round(clamp(22 * zoom, 16, 28));
+    ctx.font = `900 ${fuente}px Montserrat, "Arial Black", sans-serif`;
     for (const t of S.textos) {
-      const a = 1 - Math.max(0, t.vida - t.dur * 0.6) / (t.dur * 0.4);
-      ctx.globalAlpha = a;
-      ctx.font = '900 22px Montserrat, "Arial Black", sans-serif';
-      ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(30,15,40,.85)'; ctx.strokeText(t.t, t.x, t.y);
-      ctx.fillStyle = t.color; ctx.fillText(t.t, t.x, t.y);
+      const q = aPantalla(t.x, t.y), y = q.y - t.vida * 34;
+      ctx.globalAlpha = 1 - Math.max(0, t.vida - t.dur * 0.6) / (t.dur * 0.4);
+      ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(30,15,40,.85)'; ctx.strokeText(t.t, q.x, y);
+      ctx.fillStyle = t.color; ctx.fillText(t.t, q.x, y);
     }
     ctx.globalAlpha = 1;
 
     // flechas hacia las paradas fuera de pantalla
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (S.corriendo) flechas();
   }
 
@@ -653,8 +787,13 @@
     ctx.save(); ctx.translate(c.px, c.py);
     const a = Math.atan2(c.dy || 0, c.dx || 1);
     if (c.tipo === 'perro') {
-      ctx.rotate(a);
-      const paso = quieto ? 0 : Math.sin(c.t * 14) * 2;
+      ctx.rotate(c.ang);
+      const corre = c.modo !== 'pasea';
+      const paso = quieto || c.parado > 0 ? 0 : Math.sin(c.t * (corre ? 32 : 14)) * (corre ? 3 : 2);
+      if (c.ladra > 0) { // ladridos: rayitas delante del hocico
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+        for (const n of [0, 1]) { ctx.beginPath(); ctx.arc(18, 0, 9 + n * 6, -0.6, 0.6); ctx.stroke(); }
+      }
       ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(2, 3, 14, 7, 0, 0, 7); ctx.fill();
       ctx.fillStyle = '#8A5A2B'; ctx.beginPath(); ctx.ellipse(0, 0, 13, 6, 0, 0, 7); ctx.fill();
       ctx.beginPath(); ctx.arc(13, paso * 0.3, 5.5, 0, 7); ctx.fill();
@@ -832,9 +971,9 @@
 
   function flechas() {
     for (const p of S.paradas) {
-      const sx = (p.x - S.cam.x) * zoom + W / 2, sy = (p.y - S.cam.y) * zoom + H / 2;
-      if (sx > 20 && sx < W - 20 && sy > 20 && sy < H - 20) continue;
-      const a = Math.atan2(sy - H / 2, sx - W / 2);
+      const q = aPantalla(p.x, p.y);
+      if (q.x > 20 && q.x < W - 20 && q.y > 20 && q.y < H - 20) continue;
+      const a = Math.atan2(q.y - H * PIVOTE, q.x - W / 2);
       const m = 46;
       const ex = clamp(W / 2 + Math.cos(a) * W, m, W - m), ey = clamp(H / 2 + Math.sin(a) * H, m + 130, H - m - 120);
       ctx.save(); ctx.translate(ex, ey); ctx.rotate(a);
@@ -941,6 +1080,14 @@
     if (cual === 'sube') nota(semi(7), t, 0.15, 'triangle', 0.12);
     if (cual === 'choque') { nota(70, t, 0.3, 'sawtooth', 0.25); nota(55, t + 0.05, 0.3, 'square', 0.15); }
     if (cual === 'caida') { const o = ac.createOscillator(), g = ac.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(900, t); o.frequency.exponentialRampToValueAtTime(150, t + 0.6); g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.7); o.connect(g); g.connect(maestro); o.start(t); o.stop(t + 0.75); }
+    if (cual === 'ladrido') {
+      for (const [d, f] of [[0, 540], [0.17, 480]]) {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = 'sawtooth'; o.frequency.setValueAtTime(f, t + d); o.frequency.exponentialRampToValueAtTime(f * 0.55, t + d + 0.09);
+        g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.16, t + d + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + d + 0.11);
+        o.connect(g); g.connect(maestro); o.start(t + d); o.stop(t + d + 0.13);
+      }
+    }
     if (cual === 'fin') [0, 4, 7, 12].forEach((n, i) => nota(semi(n + 12), t + i * 0.12, 0.3, 'triangle', 0.15));
   }
   const bSon = $('#b-sonido');
