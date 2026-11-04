@@ -115,7 +115,7 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 </head>
 <body>
 <main class="escena">
-  <canvas id="pueblo" role="img" aria-label="Un pueblo en fiestas visto desde arriba: calles largas con banderines, redondeles con flores, el parque con su kiosco y la estación, y el gusanito de colores con sus vagones llenos de gente"></canvas>
+  <canvas id="pueblo" role="img" aria-label="Pujilí en fiestas visto desde arriba: sus calles de verdad con banderines, redondeles con flores, el Parque Central con su kiosco y la estación, la Iglesia Matriz, los mercados con la feria, y el gusanito de colores con sus vagones llenos de gente"></canvas>
 
   <div class="hud-juego">
     <header class="barra">
@@ -147,7 +147,7 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
   <!-- Portada -->
   <div class="capa" id="c-inicio">
     <div class="vidrio pila capa__panel" role="dialog" aria-labelledby="t-juego">
-      <p class="kicker">Fiestas del pueblo</p>
+      <p class="kicker">En las calles de Pujilí</p>
       <h1 id="t-juego">El gusanito</h1>
       <ol class="pasos">
         <li><b class="n">1</b><p><b>Para girar</b>, toca y mantén la mitad <b>izquierda</b> o <b>derecha</b> de la pantalla (o ← →). Gira como un carro de verdad: necesita espacio y quieto no gira. <b>Freno</b> (o los dos lados a la vez) frena, y si ya estás parado, va en <b>reversa</b>.</p></li>
@@ -155,7 +155,7 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
         <li><b class="n">3</b><p>Se bajan al final de la vuelta, o antes si llegan al <b>100 %</b>. Con menos de 75 % <b>piden devuelto</b>; si te demoras, la fila <b>se va</b>.</p></li>
         <li><b class="n">4</b><p>En la estación compras <b>combustible</b> (cada vuelta gasta), <b>vagones</b> (más gente, más plata, la cola más brava), barras, parlante o luces para la <b>noche</b>.</p></li>
       </ol>
-      <p class="caption">Cada vuelta se cierran calles y hay calles angostas con puestos de la feria: busca otro camino. Se acaba cuando la cola se parte, cuando pierdes las tres vidas, cuando la fila pierde la confianza o cuando te quedas sin combustible y sin plata.</p>
+      <p class="caption">Cada vuelta se cierran calles, y en los mercados hay calles angostas con puestos de la feria: busca otro camino. Se acaba cuando la cola se parte, cuando pierdes las tres vidas, cuando la fila pierde la confianza o cuando te quedas sin combustible y sin plata.</p>
       <button class="btn btn--rojo boton-juego btn-block" id="b-arrancar" type="button">¡Arrancar!</button>
     </div>
   </div>
@@ -210,6 +210,7 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 </main>
 
 <script src="https://franciscombp.github.io/ds/mal/mal.js?v=1.0.22" defer></script>
-<script src="gusanito.js?v=13"></script>
+<script src="mapas/pujili.js?v=1"></script>
+<script src="gusanito.js?v=14"></script>
 </body>
 </html>

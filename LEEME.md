@@ -5,13 +5,14 @@ escarabajo transformado, con ojos de pestañas, labios rojos y antenas) que arra
 vidrio con toldos de colores. El chofer zigzaguea y da vueltas para que los vagones se mezan y la gente
 grite.
 
-Por ahora es un **prototipo arcade** para probar esa mecánica. El juego está en la raíz del repo
-(`index.html` y `gusanito.js`) y se publica en https://quesf-ec.github.io/gusanito/. La página de
-presentación va en una.red, no aquí.
+Por ahora es un **prototipo arcade** para probar esa mecánica. Se juega en las **calles de verdad de
+Pujilí**, alrededor de su Parque Central. El juego está en la raíz del repo (`index.html`, `gusanito.js` y el
+mapa en `mapas/pujili.js`) y se publica en https://quesf-ec.github.io/gusanito/. La página de presentación va
+en una.red, no aquí.
 
 ## Cómo se juega
 
-- El gusanito arranca **estacionado en la estación del parque**, con 2 vagones. La gente hace fila y se sube.
+- El gusanito arranca **estacionado en la estación del Parque Central**, con 2 vagones. La gente hace fila y se sube.
 - **Cada vuelta dura 60 s, siempre lo mismo** (`C.vuelta`), tenga el largo que tenga. Regresa a la estación
   antes de que se acabe. Si te demoras, la fila se cansa y **se va** (cada uno baja la **confianza**).
 - **La diversión es lo que cuenta**. Zigzag y **redondeles** (ahí el meneo vale ×1,5). Entre más gente a
@@ -25,8 +26,10 @@ presentación va en una.red, no aquí.
 - **Calles cerradas**: cada vez que sales de la estación se cierran algunas calles con una valla (1 al principio,
   y una más cada dos vueltas, hasta 6). Nunca dejan una esquina sin salida, nunca tocan la estación y nunca caen
   donde está el gusanito: hay que buscar otro camino cada vuelta.
-- **Calles angostas**: en 8 calles hay puestos de la feria pegados a la vereda; en 3 de ellas, a las dos veredas,
-  y queda la mitad del ancho. Por ahí el zigzag tiene que ser fino.
+- **Calles angostas**: en las 10 cuadras más cercanas a los mercados hay puestos de la feria pegados a la vereda;
+  en 4 de ellas, a las dos veredas, y queda como la mitad del ancho. Por ahí el zigzag tiene que ser fino.
+- **El borde del pueblo** está cerrado con vallas que dicen **CERRADO**, pero las calles siguen del otro lado,
+  con sus casas: el pueblo no se acaba, solo que por ahí no se pasa.
 - Al llegar, pagan según lo felices que bajen ($0,25 si vienen en 0 %, hasta $1,25 felices, más $0,25 de
   propina si además no se asustaron).
 - **En la estación decides, y el tiempo se para** hasta que digas **¡Vámonos!**:
@@ -45,7 +48,8 @@ presentación va en una.red, no aquí.
     suelta todo lo de atrás (con su gente, que se cae) y se acaba. Medido sin paredes con inercia 0,975 y
     zigzag amplio (0,9 s a cada lado): con 4 vagones no se partió en 25 s; con 6 rozó el límite; con 8 se partió a
     los 7 s y con 10, a los 4,6 s. Con 10 vagones y zigzag corto y rápido (0,4 s) no se partió.
-  - **Te quedan sin vidas** (♥♥♥): tres golpes contra casas, árboles, el kiosco o el borde. Cada golpe
+  - **Te quedan sin vidas** (♥♥♥): tres golpes de frente contra la vereda, los puestos, una valla o la isla de
+    un redondel. Cada golpe
     **suelta el último vagón** y le baja la confianza a la fila.
   - **Nadie quiere subirse**: la confianza de la fila llega a 0 porque la gente se fue esperando, pidió
     devuelto o le fue mal en los golpes.
@@ -73,13 +77,27 @@ presentación va en una.red, no aquí.
 - Topar a los **danzantes** cuesta $0,50 (no quita vidas). Los **perros** salen corriendo a ladrarle al
   gusanito: asustan al chofer y a la gente, pero nunca los puedes pisar.
 
-### El pueblo
+### El pueblo: Pujilí de verdad
 
-5×5 cuadras grandes (560 px) con calles de 210 px (105 donde hay puestos a las dos veredas). El **parque** ocupa dos cuadras de largo (560 × 1330 px),
-con el kiosco en el centro y la **estación** en su lado de abajo, con una bahía de 520 px para estacionar.
-Hay **como mucho un redondel por cuadra**: se eligen solos en las esquinas (`redondeles`), ninguno toca el
-parque, y las cuadras de alrededor tienen la esquina recortada en curva. Los caminantes y los perros no
-cruzan el parque.
+El mapa es **Pujilí**, sacado de OpenStreetMap: 10 km de calles en un radio de juego de 380 m alrededor del
+**Parque Central** (Luis Fernando Vivero), frente a la **Iglesia Matriz**. Se dibuja a 11 px por metro
+(`C.escala`), así que las cuadras de unos 80 m miden unos 900 px. Las calles son más anchas que las reales
+para que quepa el zigzag: 26 px por cada metro de calzada (`C.anchoCalle`), con un mínimo de 150. Una
+residencial de 7 m queda en 182 px y una secundaria de 9 m, en 234.
+
+- **La estación** está en la calle recta más larga que bordea el parque (la Rafael Morales, 810 px), con el
+  parque a la derecha del gusanito: la fila espera en la vereda del parque. La bahía mide 520 px.
+- **Zonas**: la Matriz y el parque, con los danzantes, que bailan en las calles de la fiesta (a menos de 200 m
+  del parque); los **mercados** (Sucre, Ropa, Comidas al norte; Papas, Granos y Lana al sur), con la feria en la
+  calle; la **Plaza de Toros** al este. Los nombres de los lugares y de las calles se leen en el piso.
+- **Redondeles**: los de verdad no existen, así que el juego los pone en los cruces de cuatro calles, lejos de la
+  estación, **uno por barrio** (a 1900 px como mínimo entre ellos, `C.separaRedondel`). Salen 7.
+- **El borde**: donde una calle sale del radio de juego hay una valla (30 en total). Del otro lado la calle sigue
+  dibujada hasta 560 m, con casas y árboles, para que el pueblo parezca seguir.
+- **Las casas**: las que están en OpenStreetMap (346, con la Matriz y la Plaza de Toros) y, donde no hay,
+  casitas de teja a lo largo de cada calle (unas 1200), con árboles en los patios del medio de las cuadras.
+
+Para cambiar de pueblo o de radio: `tools/mapa.py` (ver abajo).
 
 ### Cómo sube la dificultad
 
@@ -122,10 +140,15 @@ Juegos con mecánicas parecidas que sirvieron de referencia. Lo que tomamos y lo
 ## Cómo está hecho
 
 Todo en `gusanito.js`, en canvas 2D, sin dependencias aparte del sistema de diseño MAL para el
-HUD y las capas.
+HUD y las capas. El mapa está en `mapas/pujili.js`.
 
-- **Las paredes** son distancias con signo (`sdMundo()`): cuadras con las esquinas comidas por los
-  redondeles, islas y el borde del pueblo. Todo lo redondo choca contra eso con la misma función.
+- **Las paredes** son distancias con signo (`sdMundo()`): lo libre es la calzada de las calles de juego y de
+  los redondeles (cada pedazo de calle es una cápsula); se le restan las islas, los puestos, las vallas del borde
+  y las calles cerradas. Una rejilla de 160 px (`celdas()`) guarda qué hay cerca de cada punto, así que cada
+  consulta mira solo unos pocos pedazos. Todo lo redondo choca contra eso con la misma función.
+- **La ayuda al manejar** busca el pedazo de calle más cercano que va para donde vas (`calleCerca()`) y te
+  centra en él; las calles cerradas se eligen sobre el grafo de cruces y tramos, sin dejar ningún cruce sin
+  salida desde la estación.
 - **Al tocar una pared** el gusanito se desliza por ella, pero el rumbo sigue siendo tuyo: la pared solo
   empuja y frena lo que va contra ella. Antes la pared también cambiaba el rumbo hacia su línea, y eso
   dejaba la trompa pegada sin poder girar para salir.
@@ -150,7 +173,7 @@ HUD y las capas.
 - **Lo que siente el pasajero** es el empujón de costado: rapidez del vagón × lo que gira, más el
   deslizamiento. Entre `C.divDesde` y `C.miedoDesde` divierte, más arriba asusta y sobre `C.caidaDesde`
   alguien puede salir volando.
-- **Los perros** pasean de esquina en esquina; si el gusanito pasa rápido cerca, salen corriendo a su
+- **Los perros** pasean por la vereda de su calle; si el gusanito pasa rápido cerca, salen corriendo a su
   lado, ladran, y luego se van de costado. Después de moverse, `apartarDelGusano()` los empuja fuera de
   la cabeza y los vagones, así que nunca quedan debajo.
 
@@ -158,6 +181,27 @@ Todos los ajustes están en el objeto `C` al inicio del archivo. Desde la consol
 `gusanito.C` y `gusanito.S` dejan cambiarlos y mirar el estado en vivo; `gusanito.C.fantasma = true`
 apaga los choques, que sirve para calibrar.
 
+
+## El mapa: `tools/mapa.py`
+
+```sh
+python3 tools/mapa.py pujili      # vuelve a escribir mapas/pujili.js
+```
+
+Pide las calles a la API de OpenStreetMap por teselas, igual que `tools/calles.py` del repo de los coches de
+madera (de ahí salen la manera de pedirlas y de pasar latitud y longitud a metros), y guarda las teselas en
+`~/.cache/gusanito-mapa`, así que la segunda vez no pide nada. Cada receta (`RECETAS`) tiene el centro, el radio
+de juego y el radio de vista. Escribe:
+
+- **calles**: los tramos de cruce a cruce que se manejan, con su ancho según el tipo de vía. Solo la red
+  conectada más grande dentro del radio de juego.
+- **salidas**: donde una calle cruza el borde del radio de juego (ahí el juego pone las vallas).
+- **vistas**: las calles de afuera, hasta el radio de vista, que solo se dibujan.
+- **edificios**, **verdes**, el **parque** de la estación y los **lugares** con nombre (iglesias, mercados,
+  plazas).
+
+Se guarda como `.js` y no como `.json` para que `index.html` lo cargue con una etiqueta `<script>`, también
+abriéndolo directo del disco. Los datos son © colaboradores de OpenStreetMap, con licencia ODbL.
 
 ## Para probarlo
 
