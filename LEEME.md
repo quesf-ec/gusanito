@@ -20,11 +20,19 @@ presentación va en una.red, no aquí.
   a tiempo o no: no pagan y la fila se molesta.
 - **Se bajan al final de la vuelta** (en los últimos 12 s, `C.ventana`, o después si llegas tarde), **o antes
   si llegan al 100 %**. Si te estacionas antes, te dice cuántos segundos faltan.
+- **Al 100 % ya están contentos**: desde ahí no se aburren (ni al frenar para estacionarte) ni se asustan con el
+  meneo. Solo un golpe contra una pared les quita el gusto. Si llegas tarde, sí empiezan a aburrirse.
+- **Calles cerradas**: cada vez que sales de la estación se cierran algunas calles con una valla (1 al principio,
+  y una más cada dos vueltas, hasta 6). Nunca dejan una esquina sin salida, nunca tocan la estación y nunca caen
+  donde está el gusanito: hay que buscar otro camino cada vuelta.
+- **Calles angostas**: en 8 calles hay puestos de la feria pegados a la vereda; en 3 de ellas, a las dos veredas,
+  y queda la mitad del ancho. Por ahí el zigzag tiene que ser fino.
 - Al llegar, pagan según lo felices que bajen ($0,25 si vienen en 0 %, hasta $1,25 felices, más $0,25 de
   propina si además no se asustaron).
 - **En la estación decides, y el tiempo se para** hasta que digas **¡Vámonos!**:
   - **Combustible**: cada vuelta gasta una de las 4 vueltas del tanque (●●●●). Llenarlo cuesta
-    $10 + $2 por vagón. Sin combustible no sales; sin combustible ni plata, se acaba la partida.
+    $10 + $2 por vagón. Sin combustible no sales; sin combustible ni plata, **pierdes**. Si te quedaste sin
+    combustible, la tienda no te deja comprar otra cosa que te deje sin plata para llenarlo («primero ⛽»).
   - **Vagón nuevo**: su precio sube con cada vagón ($8, $20, $35…). Más vagones = más gente y más plata
     por vuelta, pero una cola más larga se sacude más. Si hay gente en la fila, sube al nuevo.
   - **Barras reforzadas** ($30, $60…): la cola aguanta más sacudida antes de cansarse.
@@ -67,7 +75,7 @@ presentación va en una.red, no aquí.
 
 ### El pueblo
 
-5×5 cuadras grandes (560 px) con calles de 210 px. El **parque** ocupa dos cuadras de largo (560 × 1330 px),
+5×5 cuadras grandes (560 px) con calles de 210 px (105 donde hay puestos a las dos veredas). El **parque** ocupa dos cuadras de largo (560 × 1330 px),
 con el kiosco en el centro y la **estación** en su lado de abajo, con una bahía de 520 px para estacionar.
 Hay **como mucho un redondel por cuadra**: se eligen solos en las esquinas (`redondeles`), ninguno toca el
 parque, y las cuadras de alrededor tienen la esquina recortada en curva. Los caminantes y los perros no
