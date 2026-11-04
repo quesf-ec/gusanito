@@ -27,8 +27,9 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 .cifras{display:flex;gap:var(--mal-e4);align-items:flex-start}
 .cifras .marcador{font-size:clamp(1.4rem, 1rem + 2vw, 2.2rem);color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.35)}
 .cifras .marcador small{color:rgba(255,255,255,.75)}
-.alegria{width:min(46vw, 220px);display:grid;gap:4px}
-.alegria .micro{color:#fff;margin:0;display:flex;justify-content:space-between;font-weight:700;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+.alegria{width:min(64vw, 250px);display:grid;gap:4px}
+.cifras .marcador.poco{color:#FFB3A8}
+.alegria .micro{color:#fff;margin:0;display:flex;justify-content:space-between;gap:var(--mal-e2);white-space:nowrap;letter-spacing:.06em;font-weight:700;text-shadow:0 1px 0 rgba(0,0,0,.4)}
 .alegria .medidor--continuo{height:10px;background:rgba(0,0,0,.35)}
 .alegria .medidor--continuo > i{display:block;height:100%;width:0;border-radius:inherit;
   background:linear-gradient(90deg,#F2B33D,#E8458B,#7E3592);transition:width .2s}
@@ -39,6 +40,8 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 .mando--freno{width:clamp(96px, 30vw, 140px);border-radius:999px;font:800 .95rem/1 var(--mal-texto, sans-serif);letter-spacing:.08em;text-transform:uppercase;background:rgba(214,56,43,.55)}
 .mando.activo{background:rgba(242,179,61,.75);color:#2A1B3D}
 .teclas{color:#fff;opacity:.8;font-size:var(--mal-t-micro);text-align:center;margin:0 0 var(--mal-e2);text-shadow:0 1px 0 rgba(0,0,0,.5)}
+/* acostado, el freno se va a la derecha junto a ▶ para no tapar al gusanito, que va al centro */
+@media (orientation:landscape){ .mando--freno{margin-left:auto} }
 @media (hover:hover) and (pointer:fine){ .mandos{display:none} }
 @media not ((hover:hover) and (pointer:fine)){ .teclas{display:none} }
 
@@ -83,11 +86,12 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
       </div>
       <div class="hud-juego__cifras">
         <div class="cifras">
-          <p class="marcador" id="h-tiempo">2:00<small>la vuelta</small></p>
+          <p class="marcador" id="h-tiempo">1:15<small>tiempo</small></p>
           <p class="marcador" id="h-plata" aria-live="polite">$0,00<small>la plata</small></p>
         </div>
         <div class="alegria">
-          <p class="micro"><span>Alegría</span><span id="h-gente">0/12</span></p>
+          <p class="micro"><span id="h-nivel">Nivel 1</span><span id="h-meta">0/3 felices</span></p>
+          <p class="micro"><span>Alegría</span><span id="h-gente">0/8</span></p>
           <div class="medidor medidor--continuo" aria-hidden="true"><i id="h-alegria"></i></div>
         </div>
       </div>
@@ -111,8 +115,8 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
       <ol class="pasos">
         <li><b class="n">1</b><p><b>Frena en las paradas</b> (las de letrero amarillo) para que suba la gente.</p></li>
         <li><b class="n">2</b><p><b>Haz zigzag y da vueltas</b>: los vagones se mecen y la cola da latigazos. ¡Eso es lo que les gusta! Atrás se siente más.</p></li>
-        <li><b class="n">3</b><p><b>No te pases de brusco</b>: si la cola va muy rápido, la gente se asusta… o sale volando.</p></li>
-        <li><b class="n">4</b><p>Los que ya se divirtieron se bajan en la siguiente parada y <b>pagan</b>. Con más gente feliz, el gusanito <b>crece</b>.</p></li>
+        <li><b class="n">3</b><p><b>No te pases de brusco</b>: en los niveles altos, si la cola va muy rápido, la gente se asusta… o sale volando.</p></li>
+        <li><b class="n">4</b><p>Los que ya se divirtieron se bajan en la siguiente parada y <b>pagan</b>. Cada <b>nivel</b> pide más gente feliz: si lo logras ganas tiempo, el gusanito crece y todo se pone más bravo.</p></li>
       </ol>
       <p class="caption">En la plaza las vueltas valen doble. No topes a los danzantes. Los perros salen corriendo a ladrarte y te asustan, pero nunca los vas a pisar.</p>
       <button class="btn btn--rojo boton-juego btn-block" id="b-arrancar" type="button">¡Arrancar!</button>
@@ -132,7 +136,7 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
   <!-- Fin de la vuelta -->
   <div class="capa" id="c-fin" hidden>
     <div class="vidrio pila capa__panel" role="dialog" aria-labelledby="t-fin">
-      <p class="kicker">Se acabó la vuelta</p>
+      <p class="kicker" id="fin-nivel">Se acabó el tiempo</p>
       <h2 id="t-fin">$0,00</h2>
       <p class="caption" id="fin-frase"></p>
       <dl class="resumen">
@@ -140,7 +144,7 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
         <dt>Se bajaron asustados</dt><dd id="r-asustados">0</dd>
         <dt>Salieron volando</dt><dd id="r-caidos">0</dd>
         <dt>Choques</dt><dd id="r-choques">0</dd>
-        <dt>Vagones al final</dt><dd id="r-vagones">0</dd>
+        <dt>Vagones</dt><dd id="r-vagones">0</dd>
         <dt>Tu récord</dt><dd id="r-record">$0,00</dd>
       </dl>
       <button class="btn btn--rojo boton-juego btn-block" id="b-otra" type="button">Otra vuelta</button>
@@ -149,6 +153,6 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 </main>
 
 <script src="https://franciscombp.github.io/ds/mal/mal.js?v=1.0.22" defer></script>
-<script src="gusanito.js?v=4"></script>
+<script src="gusanito.js?v=5"></script>
 </body>
 </html>

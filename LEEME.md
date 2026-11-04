@@ -12,20 +12,49 @@ presentación va en una.red, no aquí.
 ## Cómo se juega
 
 - El gusanito acelera solo. **← →** (o los botones ◀ ▶ en el celular) para girar, **↓ / espacio / Freno**
-  para frenar. **P** o **Esc** para pausar.
-- Frena en una **parada** (círculo amarillo con letrero) para que suba la gente.
+  para frenar. **P** o **Esc** para pausar. Con el celular acostado, el freno va a la derecha.
+- Frena en una **parada** (círculo amarillo con letrero) para que suba la gente. La primera está justo
+  delante, con un letrero de «¡Frena aquí!».
 - **Zigzag y vueltas**: el meneo llena la diversión de cada pasajero (la barrita amarilla bajo cada uno).
   Los de atrás sienten más. En la **plaza** vale doble.
-- Si te pasas, se asustan (gotita azul) y, con latigazos muy fuertes, **salen volando** (−$1).
+- Si te pasas, se asustan (gotita azul) y, con latigazos muy fuertes, **salen volando** (−$1). En el nivel
+  1 nadie sale volando.
 - Los felices (corazón) se bajan en la siguiente parada y pagan $1, con propina si no se asustaron.
-  Cada 8 felices se engancha **un vagón más** (hasta 8): más plata, pero la cola es más brava.
 - Chocar contra las casas asusta a todos; topar a los **danzantes** cuesta $0,50.
 - Los **perros** salen corriendo a ladrarle al gusanito y lo acompañan un rato a su lado: cuando llegan
   a la par de la trompa, el chofer se asusta y frena de golpe, y la gente se asusta un poco. Pero nunca
   los puedes pisar: siempre se apartan.
 - La **cámara gira con la cabeza**: la trompa siempre apunta hacia arriba, así ◀ ▶ siempre son izquierda
   y derecha en la pantalla, vaya hacia donde vaya el gusanito.
-- La vuelta dura 2 minutos.
+- **Niveles**: empiezas con 1:15. Cada nivel pide cierta cantidad de felices (3, 4, 5…); al lograrlo
+  ganas tiempo, se engancha un vagón más y todo se pone más bravo. El juego termina cuando se acaba el
+  tiempo.
+
+### Cómo sube la dificultad
+
+Todo está en la tabla `NIVELES` al inicio de `gusanito.js`:
+
+| Nivel | Felices | Vagones | Velocidad | Ayuda | Danzantes | Perros | Tiempo extra |
+|------:|--------:|--------:|----------:|------:|----------:|-------:|-------------:|
+| 1 | 3 | 2 | 160 | 100 % | 0 | 2 | — |
+| 2 | 4 | 3 | 180 | 80 % | 1 | 3 | +45 s |
+| 3 | 5 | 4 | 200 | 60 % | 2 | 4 | +45 s |
+| 4 | 6 | 5 | 220 | 45 % | 3 | 5 | +50 s |
+| 5 | 7 | 6 | 235 | 30 % | 4 | 6 | +50 s |
+| 6 | 8 | 7 | 250 | 15 % | 5 | 7 | +55 s |
+| 7+ | 9, 11, 13… | 8 | 250 | 0 | 6 | 8 | +60 s |
+
+También bajan con el nivel los umbrales de miedo y de caída, y la gente se divierte más rápido al
+principio (`ritmo`).
+
+**La ayuda al manejar** (`ayudar()`): si la trompa va a dar contra algo, se desvía hacia el lado libre y
+frena un poco; si no tocas ◀ ▶, se endereza con la calle y se va al centro (en la plaza no, para que
+puedas dar vueltas); cerca de una parada con gente y asientos libres, afloja. Con ayuda, rozar una pared
+no cuenta como choque. Medido con un chofer que gira al azar: 0 choques por minuto en los niveles 1 y 2,
+unos 10 por minuto en el 7.
+
+En todos los niveles la pared desvía al gusanito a lo largo de la calle, y con la trompa pegada a una
+pared no acelera contra ella, así que siempre se puede girar y salir.
 
 ## Cómo está hecho
 

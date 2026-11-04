@@ -9,24 +9,38 @@
   // ─── Ajustes: todo lo que se calibra está aquí ──────────────────────
   const C = {
     bloque: 380, calle: 190, cols: 5, filas: 5,       // el pueblo
-    vMax: 250, acel: 150, freno: 480,                  // la cabeza
+    acel: 150, freno: 480,                             // la cabeza (la velocidad máxima va por nivel)
     giro: 2.5, giroSuave: 9,
     cabezaL: 78, cabezaA: 46,
     vagonL: 58, vagonA: 44, barra: 16,
     agarre: 6,              // cuánto frenan las llantas el deslizamiento lateral (1/s)
     inercia: 0.92,          // cuánto conserva cada vagón su impulso: con 1 la cola se desboca, con 0.85 ya no se mece
     dobla: 1.0,             // ángulo máximo entre un vagón y el de adelante (rad)
-    vagonesIni: 3, vagonesMax: 8, asientos: 4, felicesPorVagon: 8,
-    // empujón de costado que siente el pasajero (px/s²)
+    vagonesMax: 8, asientos: 4,
+    // empujón de costado que siente el pasajero (px/s²); el miedo y las caídas van por nivel
     divDesde: 120,          // desde aquí ya es divertido
-    miedoDesde: 650,        // desde aquí asusta
-    caidaDesde: 820,        // desde aquí alguien puede salir volando
+    divLleno: 650,          // desde aquí la diversión ya no sube más rápido
     ritmoDiv: 0.2,          // qué tan rápido se llena la diversión con meneo fuerte (por segundo)
-    tiempo: 120,
+    tiempo: 75,             // segundos para el nivel 1; cada nivel nuevo suma los suyos
     paradasActivas: 4,
     camGiro: 3.5,           // qué tan rápido gira la cámara para seguir a la cabeza (1/s)
-    perros: 8,
   };
+
+  // ─── Niveles: empieza fácil para engancharte y se va poniendo bravo ─
+  // meta: felices para pasar de nivel · vagones · vMax: velocidad máxima · asist: ayuda al manejar (1 = toda, 0 = nada)
+  // ritmo: qué tan rápido se divierten · miedo / caida: empujón desde el que se asustan / salen volando
+  // danzantes, perros: cuántos hay en el pueblo · extra: segundos que ganas al llegar al nivel
+  const NIVELES = [
+    { meta: 3, vagones: 2, vMax: 160, asist: 1,    ritmo: 1.8,  miedo: 900, caida: Infinity, danzantes: 0, perros: 2, extra: 0 },
+    { meta: 4, vagones: 3, vMax: 180, asist: 0.8,  ritmo: 1.5,  miedo: 820, caida: 1100, danzantes: 1, perros: 3, extra: 45 },
+    { meta: 5, vagones: 4, vMax: 200, asist: 0.6,  ritmo: 1.3,  miedo: 750, caida: 980,  danzantes: 2, perros: 4, extra: 45 },
+    { meta: 6, vagones: 5, vMax: 220, asist: 0.45, ritmo: 1.15, miedo: 700, caida: 900,  danzantes: 3, perros: 5, extra: 50 },
+    { meta: 7, vagones: 6, vMax: 235, asist: 0.3,  ritmo: 1.05, miedo: 670, caida: 860,  danzantes: 4, perros: 6, extra: 50 },
+    { meta: 8, vagones: 7, vMax: 250, asist: 0.15, ritmo: 1,    miedo: 650, caida: 820,  danzantes: 5, perros: 7, extra: 55 },
+    { meta: 9, vagones: 8, vMax: 250, asist: 0,    ritmo: 1,    miedo: 630, caida: 800,  danzantes: 6, perros: 8, extra: 60 },
+  ];
+  // después del último, cada nivel pide 2 felices más
+  const nivelDe = (n) => { const u = NIVELES.length, b = NIVELES[Math.min(n, u) - 1]; return n <= u ? b : { ...b, meta: b.meta + (n - u) * 2 }; };
 
   const PALETAS = [
     { cuerpo: '#8BD43B', borde: '#E8458B', toldo: ['#F2B33D', '#E8458B', '#5FB4E6', '#8BD43B'] },
@@ -146,13 +160,17 @@
       t: C.tiempo, plata: 0, felices: 0, asustados: 0, caidos: 0, choques: 0,
       corriendo: false, fin: false,
       cab: { x: x0, y: y0, ang: -Math.PI / 2, v: 0, giro: 0, golpe: 0, enfriar: 0 },
-      vagones: [], paradas: [], caminantes: [], volando: [], textos: [], chispas: [],
-      cam: { x: x0, y: y0, ang: -Math.PI / 2 }, parando: 0, sigCrece: C.felicesPorVagon, avisoT: 0, sustoT: 0, ladridoT: 0, reponer: [],
+      vagones: [], paradas: [], caminantes: [], volando: [], textos: [], chispas: [], anuncios: [],
+      cam: { x: x0, y: y0, ang: -Math.PI / 2 }, parando: 0, avisoT: 0, sustoT: 0, ladridoT: 0, reponer: [],
+      nivel: 1, dif: nivelDe(1), felicesNivel: 0, guia: 0,
     };
-    for (let k = 0; k < C.vagonesIni; k++) agregarVagon();
-    for (let k = 0; k < C.paradasActivas; k++) nuevaParada();
-    for (let k = 0; k < 4; k++) S.caminantes.push(nuevoCaminante('danzante'));
-    for (let k = 0; k < C.perros; k++) S.caminantes.push(nuevoCaminante('perro'));
+    for (let k = 0; k < S.dif.vagones; k++) agregarVagon();
+    // la primera parada queda justo delante, en la misma calle, con gente suficiente para pasar el nivel 1
+    const primera = sitiosParada.find((s) => Math.abs(s.x - (C.calle - 34)) < 1 && Math.abs(s.y - (C.calle + paso * 2 + C.bloque / 2)) < 1);
+    nuevaParada(primera, 4);
+    S.paradas[0].guia = true;
+    for (let k = 1; k < C.paradasActivas; k++) nuevaParada();
+    ajustarCaminantes();
     actualizarHud(true);
   }
 
@@ -167,10 +185,10 @@
     S.vagones.push(nuevoVagon(ref.x - Math.cos(ang) * d, ref.y - Math.sin(ang) * d, ang, n));
   }
 
-  function nuevaParada() {
+  function nuevaParada(sitio, cuantos) {
     const ocupadas = S.paradas;
-    let mejor = null;
-    for (let intento = 0; intento < 30; intento++) {
+    let mejor = sitio || null;
+    for (let intento = 0; !sitio && intento < 30; intento++) {
       const s = elige(sitiosParada);
       const lejos = Math.hypot(s.x - S.cab.x, s.y - S.cab.y) > 500;
       const libre = ocupadas.every((p) => Math.hypot(p.x - s.x, p.y - s.y) > 400);
@@ -178,9 +196,21 @@
       mejor = s;
     }
     const gente = [];
-    const n = 2 + ((Math.random() * 5) | 0);
+    const n = cuantos || 2 + ((Math.random() * 5) | 0);
     for (let k = 0; k < n; k++) gente.push(nuevoPasajero());
     S.paradas.push({ ...mejor, gente, carga: 0, t: 0, nueva: 1 });
+  }
+
+  function ajustarCaminantes() {
+    for (const tipo of ['danzante', 'perro']) {
+      const quiere = tipo === 'perro' ? S.dif.perros : S.dif.danzantes;
+      let hay = S.caminantes.filter((c) => c.tipo === tipo).length;
+      for (let intento = 0; hay < quiere && intento < 200; intento++) {
+        const c = nuevoCaminante(tipo);
+        if (Math.hypot(c.x - S.cab.x, c.y - S.cab.y) < 600) continue;
+        S.caminantes.push(c); hay++;
+      }
+    }
   }
 
   // Caminantes: van de esquina en esquina por el medio de las calles
@@ -266,15 +296,61 @@
     return peor;
   }
 
+  // ¿hay algo sólido (casa, kiosco, árbol, borde) a menos de m de este punto?
+  function solido(x, y, m) {
+    if (x < m || y < m || x > ANCHO - m || y > ALTO - m) return true;
+    for (const b of bloques) if (x > b.x - m && x < b.x + b.w + m && y > b.y - m && y < b.y + b.h + m) return true;
+    for (const o of obstaculosRedondos) if (Math.hypot(x - o.x, y - o.y) < o.r + m) return true;
+    return false;
+  }
+  const vuelta = (a) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+
+  // Ayuda al manejar, más fuerte en los primeros niveles (A = S.dif.asist):
+  //  · si la trompa va a dar contra algo, se desvía hacia el lado libre y frena un poco
+  //  · sin tocar ◀ ▶, se endereza con la calle y se va al centro (en la plaza no, para dar vueltas)
+  function ayudar(k, meta, dt) {
+    const A = S.dif.asist;
+    if (A <= 0 || k.v < 30 || C.fantasma) return;
+    const mira = 35 + k.v * 0.5;
+    const libre = (da) => { const a = k.ang + da; return !solido(k.x + Math.cos(a) * mira, k.y + Math.sin(a) * mira, C.cabezaA / 2); };
+    if (!libre(0)) {
+      const der = libre(0.5) || libre(1.1), izq = libre(-0.5) || libre(-1.1);
+      const lado = der && !izq ? 1 : izq && !der ? -1 : der && izq ? (libre(0.5) ? 1 : -1) : 0;
+      k.ang += lado * C.giro * 1.3 * A * dt;
+      k.v = Math.max(70, k.v - C.freno * 0.6 * A * dt);
+      return;
+    }
+    if (meta !== 0 || enPlaza(k.x, k.y)) return;
+    const eje = Math.round(k.ang / (Math.PI / 2)) * (Math.PI / 2);
+    if (Math.abs(vuelta(eje - k.ang)) > 0.8) return;
+    const hx = Math.cos(eje), hy = Math.sin(eje);
+    const cx = C.calle / 2 + Math.round((k.x - C.calle / 2) / paso) * paso;
+    const cy = C.calle / 2 + Math.round((k.y - C.calle / 2) / paso) * paso;
+    const tx = Math.abs(hx) > 0.5 ? k.x + hx * 160 : cx, ty = Math.abs(hy) > 0.5 ? k.y + hy * 160 : cy;
+    k.ang += vuelta(Math.atan2(ty - k.y, tx - k.x) - k.ang) * Math.min(1, 2.5 * A * dt);
+  }
+
   function moverCabeza(dt) {
     const k = S.cab;
     const meta = (entrada.izq ? -1 : 0) + (entrada.der ? 1 : 0);
     k.giro += (meta - k.giro) * Math.min(1, C.giroSuave * dt);
+    // con la trompa pegada a una pared no acelera contra ella: así hay tiempo de girar y salir
+    const pegado = !C.fantasma && solido(k.x + Math.cos(k.ang) * (C.cabezaL / 2 + 6), k.y + Math.sin(k.ang) * (C.cabezaL / 2 + 6), 4);
+    let vMax = pegado ? Math.min(S.dif.vMax, 40) : S.dif.vMax;
+    if (S.dif.asist > 0 && S.vagones.some((v) => v.asientos.includes(null))) {
+      for (const p of S.paradas) {
+        if (!p.gente.length || p.carga < 0) continue;
+        const rx = p.x - k.x, ry = p.y - k.y, d = Math.hypot(rx, ry);
+        if (d < 190 && rx * Math.cos(k.ang) + ry * Math.sin(k.ang) > -40) vMax = Math.min(vMax, S.dif.vMax * (1 - 0.6 * S.dif.asist));
+      }
+    }
     if (entrada.freno) k.v = Math.max(0, k.v - C.freno * dt);
-    else if (k.v < C.vMax) k.v = Math.min(C.vMax, k.v + C.acel * dt * (k.v < 0 ? 3 : 1));
-    // gira menos cuando va lento, como un carro de verdad
-    const efecto = clamp(Math.abs(k.v) / 90, 0, 1) * Math.sign(k.v || 1);
+    else if (k.v < vMax) k.v = Math.min(vMax, k.v + C.acel * dt * (k.v < 0 ? 3 : 1));
+    else k.v = Math.max(vMax, k.v - C.freno * 0.3 * dt);
+    // gira menos cuando va lento, como un carro de verdad, pero nunca nada: parado también puede enderezar
+    const efecto = Math.max(0.4, clamp(Math.abs(k.v) / 90, 0, 1)) * Math.sign(k.v || 1);
     k.ang += k.giro * C.giro * efecto * dt;
+    ayudar(k, meta, dt);
     const dx = Math.cos(k.ang), dy = Math.sin(k.ang);
     k.x += dx * k.v * dt; k.y += dy * k.v * dt;
     // dos círculos: trompa y cola de la cabeza
@@ -285,10 +361,16 @@
     const atras = { x: k.x - dx * media, y: k.y - dy * media };
     if (resolver(atras, C.cabezaA / 2)) { k.x += atras.x - (k.x - dx * media); k.y += atras.y - (k.y - dy * media); }
     if (golpe) {
-      const fuerza = -(dx * golpe.nx + dy * golpe.ny) * k.v; // qué tan de frente
-      if (fuerza > 70 && k.enfriar <= 0) chocar(fuerza, frente.x, frente.y);
-      // se desliza por la pared y pierde velocidad
-      k.v *= fuerza > 70 ? -0.25 : 0.9;
+      const deFrente = Math.max(0, -(dx * golpe.nx + dy * golpe.ny)); // 0 = la roza, 1 = de frente
+      const fuerza = deFrente * k.v;
+      const umbral = 70 + 160 * S.dif.asist; // con ayuda, los roces no cuentan como choque
+      if (fuerza > umbral && k.enfriar <= 0) { chocar(fuerza, frente.x, frente.y); k.v *= -0.25; }
+      else {
+        // la pared lo desvía hacia lo largo de la calle; rozarla casi no frena, darle de frente sí
+        const tx = -golpe.ny, ty = golpe.nx, lado = Math.sign(dx * tx + dy * ty) || 1;
+        k.ang += vuelta(Math.atan2(ty * lado, tx * lado) - k.ang) * Math.min(1, 6 * deFrente * dt);
+        k.v = Math.max(0, k.v - (60 + 700 * deFrente) * dt);
+      }
     }
     k.enfriar -= dt;
     k.golpe = Math.max(0, k.golpe - dt * 3);
@@ -325,7 +407,7 @@
       if (golpe) {
         ex = v.x - hx; ey = v.y - hy; l = Math.hypot(ex, ey) || 1;
         v.x = hx + ex / l * d; v.y = hy + ey / l * d;
-        if (v.golpe <= 0 && Math.hypot(v.vx, v.vy) > 120) { v.golpe = 0.6; polvo(v.x, v.y, 5); for (const p of v.asientos) if (p) p.miedo += 0.08; }
+        if (v.golpe <= 0 && Math.hypot(v.vx, v.vy) > 120) { v.golpe = 0.6; polvo(v.x, v.y, 5); for (const p of v.asientos) if (p) p.miedo += 0.08 * (1 - 0.8 * S.dif.asist); }
       }
       v.golpe -= dt;
       v.ang = Math.atan2(hy - v.y, hx - v.x);
@@ -353,6 +435,7 @@
   function pasajeros(dt) {
     const plaza = enPlaza(S.cab.x, S.cab.y) ? 2 : 1;
     const lento = Math.abs(S.cab.v) < 30 && S.parando <= 0;
+    const d = S.dif;
     S.avisoT -= dt;
     for (const v of S.vagones) {
       const e = v.g;
@@ -361,23 +444,24 @@
         if (!p) continue;
         p.t += dt;
         if (e > C.divDesde) {
-          const tramo = Math.min(e, C.miedoDesde) - C.divDesde;
-          p.div += tramo / (C.miedoDesde - C.divDesde) * C.ritmoDiv * plaza * dt;
+          const tramo = Math.min(e, C.divLleno, d.miedo) - C.divDesde;
+          p.div += tramo / (C.divLleno - C.divDesde) * C.ritmoDiv * d.ritmo * plaza * dt;
         } else if (lento) p.div -= 0.015 * dt; // aburrido
-        if (e > C.miedoDesde) p.miedo += (e - C.miedoDesde) / 250 * dt;
+        if (e > d.miedo) p.miedo += (e - d.miedo) / 250 * dt;
         else p.miedo -= 0.04 * dt;
         p.div = clamp(p.div, 0, 1); p.miedo = clamp(p.miedo, 0, 1.2);
         if (!p.feliz && p.div >= 1 && p.miedo < 1) {
           p.feliz = true; texto(v.x, v.y - 30, elige(FRASES_DIV), '#F2E14B', 1.3); confeti(v.x, v.y, 18); sonar('feliz');
+          if (S.guia === 1) { S.guia = 2; anunciar('¡Ya están felices!', '#F2E14B', 4); anunciar('Llévalos a otra parada para que paguen', '#fff', 4, true); }
         }
         if (!p.asustado && p.miedo >= 1) { p.asustado = true; texto(v.x, v.y - 30, elige(FRASES_MIEDO), '#fff', 1.3); }
       }
       // gritos sueltos para que se sienta el meneo
-      if (e > 320 && e < C.miedoDesde && Math.random() < dt * 0.5 && S.avisoT <= 0 && v.asientos.some(Boolean)) {
+      if (e > 320 && e < d.miedo && Math.random() < dt * 0.5 && S.avisoT <= 0 && v.asientos.some(Boolean)) {
         texto(v.x, v.y - 24, elige(FRASES_DIV), '#fff', 0.9); S.avisoT = 1.2;
       }
       // salir volando
-      if (e > C.caidaDesde && Math.random() < dt * (e - C.caidaDesde) / 100) {
+      if (e > d.caida && Math.random() < dt * (e - d.caida) / 100) {
         const ocupados = v.asientos.map((p, i) => (p ? i : -1)).filter((i) => i >= 0);
         if (ocupados.length) {
           const s = elige(ocupados), p = v.asientos[s];
@@ -401,7 +485,7 @@
     for (let n = S.paradas.length - 1; n >= 0; n--) {
       const p = S.paradas[n];
       p.t += dt; p.nueva = Math.max(0, p.nueva - dt * 2);
-      const cerca = Math.hypot(p.x - k.x, p.y - k.y) < 95 || S.vagones.slice(0, 2).some((v) => Math.hypot(p.x - v.x, p.y - v.y) < 70);
+      const cerca = Math.hypot(p.x - k.x, p.y - k.y) < 120 || S.vagones.slice(0, 2).some((v) => Math.hypot(p.x - v.x, p.y - v.y) < 80);
       if (cerca && Math.abs(k.v) < 40) {
         S.parando = 1;
         p.carga += dt;
@@ -417,7 +501,7 @@
     for (const v of S.vagones) for (let s = 0; s < v.asientos.length; s++) {
       const q = v.asientos[s];
       if (!q) continue;
-      if (q.feliz) { const pago = 1 + (q.miedo < 0.3 ? 0.25 : 0); cobro += pago; S.felices++; v.asientos[s] = null; bajan++; }
+      if (q.feliz) { const pago = 1 + (q.miedo < 0.3 ? 0.25 : 0); cobro += pago; S.felices++; S.felicesNivel++; v.asientos[s] = null; bajan++; }
       else if (q.asustado) { S.asustados++; v.asientos[s] = null; bajan++; }
     }
     let suben = 0;
@@ -430,14 +514,23 @@
     if (bajan && !cobro) texto(p.x, p.y - 40, 'Se bajaron asustados', '#fff', 1.4);
     if (suben) texto(p.x, p.y - 20, `Subieron ${suben}`, '#fff', 1.2);
     else if (!bajan) texto(p.x, p.y - 20, p.gente.length ? 'No hay asientos' : 'Ya no hay nadie', '#fff', 1.2);
-    // crece el gusanito
-    while (S.felices >= S.sigCrece && S.vagones.length < C.vagonesMax) {
-      S.sigCrece += C.felicesPorVagon;
-      agregarVagon();
-      const u = S.vagones[S.vagones.length - 1];
-      texto(u.x, u.y - 30, '¡El gusanito creció!', '#F2E14B', 2);
-      confeti(u.x, u.y, 30);
-    }
+    if (p.guia && suben) { p.guia = false; S.guia = 1; anunciar('¡Ahora haz zigzag! ◀ ▶', '#F2E14B', 4); anunciar('El meneo los divierte', '#fff', 4, true); }
+    while (S.felicesNivel >= S.dif.meta) subirNivel();
+  }
+
+  // Nivel nuevo: más tiempo, el gusanito crece y todo se pone más bravo
+  function subirNivel() {
+    S.felicesNivel -= S.dif.meta;
+    S.nivel++;
+    S.dif = nivelDe(S.nivel);
+    S.t += S.dif.extra;
+    while (S.vagones.length < Math.min(S.dif.vagones, C.vagonesMax)) agregarVagon();
+    ajustarCaminantes();
+    const k = S.cab;
+    anunciar(`¡Nivel ${S.nivel}! +${S.dif.extra} s`, '#F2E14B', 3);
+    anunciar('El gusanito creció: ahora va más rápido', '#fff', 3, true);
+    confeti(k.x, k.y, 40);
+    sonar('nivel');
   }
 
   function caminantes(dt) {
@@ -552,6 +645,8 @@
 
   // ─── Efectos ───────────────────────────────────────────────────────
   function texto(x, y, t, color, dur) { S.textos.push({ x, y, t, color, dur, vida: 0 }); }
+  // avisos grandes, fijos arriba en la pantalla (no dependen de hacia dónde mire la cámara)
+  function anunciar(t, color, dur, chico) { S.anuncios.push({ t, color, dur, vida: 0, chico }); }
   function confeti(x, y, n) {
     if (quieto) return;
     for (let k = 0; k < n; k++) S.chispas.push({ x, y, vx: azar(-140, 140), vy: azar(-200, -40), vida: 0, dur: azar(0.8, 1.4), c: elige(['#F2E14B', '#E8458B', '#5FB4E6', '#8BD43B', '#fff']), r: azar(2, 4), confeti: true });
@@ -562,6 +657,7 @@
   }
   function efectos(dt) {
     for (let n = S.textos.length - 1; n >= 0; n--) { const t = S.textos[n]; t.vida += dt; if (t.vida > t.dur) S.textos.splice(n, 1); }
+    for (let n = S.anuncios.length - 1; n >= 0; n--) { const t = S.anuncios[n]; t.vida += dt; if (t.vida > t.dur) S.anuncios.splice(n, 1); }
     for (let n = S.chispas.length - 1; n >= 0; n--) {
       const c = S.chispas[n]; c.vida += dt; c.x += c.vx * dt; c.y += c.vy * dt;
       if (c.confeti) c.vy += 300 * dt; else { c.vx *= 0.92; c.vy *= 0.92; }
@@ -690,11 +786,32 @@
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const fuente = Math.round(clamp(22 * zoom, 16, 28));
     ctx.font = `900 ${fuente}px Montserrat, "Arial Black", sans-serif`;
+    for (const p of S.paradas) if (p.guia) {
+      const q = aPantalla(p.x, p.y), y = q.y - 60 - (quieto ? 0 : Math.abs(Math.sin(p.t * 3)) * 8);
+      ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(30,15,40,.85)'; ctx.strokeText('¡Frena aquí!', q.x, y);
+      ctx.fillStyle = '#F2E14B'; ctx.fillText('¡Frena aquí!', q.x, y);
+    }
+    const puestos = []; // para que dos textos no caigan uno encima del otro
     for (const t of S.textos) {
-      const q = aPantalla(t.x, t.y), y = q.y - t.vida * 34;
+      const q = aPantalla(t.x, t.y), w = ctx.measureText(t.t).width;
+      let y = q.y - t.vida * 34;
+      for (let i = 0; i < 6 && puestos.some((o) => Math.abs(o.x - q.x) < (o.w + w) / 2 && Math.abs(o.y - y) < fuente * 1.1); i++) y -= fuente * 1.1;
+      puestos.push({ x: q.x, y, w });
       ctx.globalAlpha = 1 - Math.max(0, t.vida - t.dur * 0.6) / (t.dur * 0.4);
       ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(30,15,40,.85)'; ctx.strokeText(t.t, q.x, y);
       ctx.fillStyle = t.color; ctx.fillText(t.t, q.x, y);
+    }
+    ctx.globalAlpha = 1;
+    // avisos grandes, apilados arriba al centro (debajo del HUD)
+    let ay = Math.max(150, H * 0.24);
+    for (const t of S.anuncios) {
+      const tam = t.chico ? Math.round(fuente * 0.7) : Math.round(fuente * 1.25);
+      ctx.font = `900 ${tam}px Montserrat, "Arial Black", sans-serif`;
+      const entra = Math.min(1, t.vida * 5), sale = 1 - Math.max(0, t.vida - t.dur + 0.5) / 0.5;
+      ctx.globalAlpha = Math.max(0, Math.min(entra, sale));
+      ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(30,15,40,.9)'; ctx.strokeText(t.t, W / 2, ay);
+      ctx.fillStyle = t.color; ctx.fillText(t.t, W / 2, ay);
+      ay += tam * 1.35;
     }
     ctx.globalAlpha = 1;
 
@@ -988,19 +1105,22 @@
   }
 
   // ─── HUD ───────────────────────────────────────────────────────────
-  const h = { tiempo: $('#h-tiempo'), plata: $('#h-plata'), gente: $('#h-gente'), alegria: $('#h-alegria') };
+  const h = { tiempo: $('#h-tiempo'), plata: $('#h-plata'), gente: $('#h-gente'), alegria: $('#h-alegria'), nivel: $('#h-nivel'), meta: $('#h-meta') };
   let hudCache = '';
   function actualizarHud(forzar) {
     const tt = Math.max(0, Math.ceil(S.t));
     let n = 0, cap = 0, div = 0;
     for (const v of S.vagones) for (const p of v.asientos) { cap++; if (p) { n++; div += p.div; } }
-    const clave = tt + '|' + S.plata.toFixed(2) + '|' + n + '/' + cap + '|' + Math.round(n ? (div / n) * 100 : 0);
+    const clave = tt + '|' + S.plata.toFixed(2) + '|' + n + '/' + cap + '|' + Math.round(n ? (div / n) * 100 : 0) + '|' + S.nivel + '|' + S.felicesNivel;
     if (clave === hudCache && !forzar) return;
     hudCache = clave;
     h.tiempo.firstChild.nodeValue = Math.floor(tt / 60) + ':' + String(tt % 60).padStart(2, '0');
     h.plata.firstChild.nodeValue = plata(S.plata);
     h.gente.textContent = `${n}/${cap} a bordo`;
     h.alegria.style.width = (n ? (div / n) * 100 : 0) + '%';
+    h.nivel.textContent = 'Nivel ' + S.nivel;
+    h.meta.textContent = `${S.felicesNivel}/${S.dif.meta} felices`;
+    h.tiempo.classList.toggle('poco', tt <= 10);
   }
 
   // ─── Capas ─────────────────────────────────────────────────────────
@@ -1026,7 +1146,8 @@
     try { localStorage.setItem('gusanito.record', recordMem); } catch { /* sin almacenamiento */ }
     const record = recordMem;
     $('#t-fin').textContent = plata(S.plata);
-    $('#fin-frase').textContent = S.caidos > 2 ? 'La gente se divirtió… los que no salieron volando.' : S.felices >= 20 ? '¡El mejor gusanito de las fiestas!' : S.felices >= 8 ? 'Buena vuelta: la gente pide otra.' : 'Haz más zigzag: la gente quiere sentir el meneo.';
+    $('#fin-nivel').textContent = 'Llegaste al nivel ' + S.nivel;
+    $('#fin-frase').textContent = S.caidos > 2 ? 'La gente se divirtió… los que no salieron volando.' : S.nivel >= 6 ? '¡El mejor gusanito de las fiestas!' : S.nivel >= 3 ? 'Buena vuelta: la gente pide otra.' : S.felices ? 'Más zigzag y más paradas: cada nivel pide más gente feliz.' : 'Haz zigzag: la gente quiere sentir el meneo.';
     $('#r-felices').textContent = S.felices; $('#r-asustados').textContent = S.asustados; $('#r-caidos').textContent = S.caidos;
     $('#r-choques').textContent = S.choques; $('#r-vagones').textContent = S.vagones.length; $('#r-record').textContent = plata(record);
     mostrar('fin');
@@ -1111,6 +1232,7 @@
         o.connect(g); g.connect(maestro); o.start(t + d); o.stop(t + d + 0.13);
       }
     }
+    if (cual === 'nivel') [0, 4, 7, 12, 16].forEach((n, i) => nota(semi(n + 12), t + i * 0.09, 0.25, 'square', 0.08));
     if (cual === 'fin') [0, 4, 7, 12].forEach((n, i) => nota(semi(n + 12), t + i * 0.12, 0.3, 'triangle', 0.15));
   }
   const bSon = $('#b-sonido');
@@ -1127,5 +1249,5 @@
   requestAnimationFrame((t) => { ultimo = t; cuadro(t); });
 
   // Para probar y calibrar desde la consola
-  window.gusanito = { C, get S() { return S; }, entrada, agregar: agregarVagon };
+  window.gusanito = { C, get S() { return S; }, entrada, agregar: agregarVagon, NIVELES, nivelDe };
 })();
