@@ -34,9 +34,9 @@ presentación va en una.red, no aquí.
   gusanito se acaba cuando:
   - **La cola se parte**: cada barra se cansa cuando la sacudida de la cola pasa de lo que aguanta
     (`C.aguanta`, más con las barras reforzadas), y se recupera cuando no. Si una se cansa del todo, se
-    suelta todo lo de atrás (con su gente, que se cae) y se acaba. Medido sin paredes con inercia 0,92: con
-    4 u 8 vagones no se partió en 25 s de zigzag; con 10 y zigzag amplio llegó casi al límite; con 12 y zigzag
-    amplio se partió a los 3,3 s.
+    suelta todo lo de atrás (con su gente, que se cae) y se acaba. Medido sin paredes con inercia 0,975 y
+    zigzag amplio (0,9 s a cada lado): con 4 vagones no se partió en 25 s; con 6 rozó el límite; con 8 se partió a
+    los 7 s y con 10, a los 4,6 s. Con 10 vagones y zigzag corto y rápido (0,4 s) no se partió.
   - **Te quedan sin vidas** (♥♥♥): tres golpes contra casas, árboles, el kiosco o el borde. Cada golpe
     **suelta el último vagón** y le baja la confianza a la fila.
   - **Nadie quiere subirse**: la confianza de la fila llega a 0 porque la gente se fue esperando, pidió
@@ -52,8 +52,14 @@ presentación va en una.red, no aquí.
   cola). Los avisos salen debajo de las fichas, como mucho dos y de una sola línea.
 - **Mandos**: el gusanito acelera solo. En el celular, **toca y mantén la mitad izquierda o derecha de la
   pantalla** para girar (si el dedo cruza al otro lado, cambia el giro). Para frenar, el botón **Freno** abajo
-  al centro, o los dos lados a la vez. En la computadora, **← →** para girar y **↓ / espacio** para frenar.
-  **P** o **Esc** para pausar.
+  al centro, o los dos lados a la vez; **si ya estás parado, el freno va en reversa** (despacio). En la
+  computadora, **← →** para girar y **↓ / espacio** para frenar o retroceder. **P** o **Esc** para pausar.
+- **Gira como los de verdad**: la cabeza es un carro, así que necesita espacio para girar (tiene un radio
+  mínimo) y quieto no gira; para salir de una pared, retrocede un poco. Cada vagón es un remolque de dos ejes:
+  la lanza tira del eje delantero, que gira con ella (se ven las llantas delanteras girar), y el de atrás sigue.
+- **La estación es una bandeja abajo**: arriba se sigue viendo el gusanito estacionado y la fila. Las ofertas
+  se deslizan de lado y dicen cuánto falta si no te alcanza; **¡Vámonos!** siempre está a la vista y dice
+  cuánto combustible gasta.
 - La **cámara gira con la cabeza**: la trompa siempre apunta hacia arriba, así ◀ ▶ siempre son izquierda
   y derecha en la pantalla.
 - Topar a los **danzantes** cuesta $0,50 (no quita vidas). Los **perros** salen corriendo a ladrarle al
@@ -117,18 +123,22 @@ HUD y las capas.
   dejaba la trompa pegada sin poder girar para salir.
 - **La cola y su fatiga**: cada barra mide la sacudida que le llega (`v.g`, la misma que siente la gente).
   Mientras pasa de `C.aguanta`, se cansa (`v.fatiga`); cuando llega a 1, `romperSiHaceFalta()` parte la
-  cola y `terminar('partio')` acaba la partida con el pico. `C.inercia` es el mando de lo inestable: con 0,92 (el valor actual) la cola crece sin tope pero se
-  aguanta hasta unos 10 vagones; con 0,95, con 12 vagones se partió en 2,5 a 3,9 s (sin paredes). Es el primer número
-  que moveré si quieres más o menos riesgo.
+  cola y `terminar('partio')` acaba la partida con el pico. `C.inercia` (el impulso que conserva el eje de
+  atrás) es el mando de lo inestable: con los remolques de dos ejes, 0,92 casi no se mece (12 vagones apenas
+  llegan a 820 de sacudida), 0,96 crece poco y 0,985 ya se parte con 8 vagones a los 3,9 s. El valor actual,
+  0,975, deja el peligro entre 6 y 10 vagones. Es el primer número que moveré si quieres más o menos riesgo.
 - **Golpes y confianza**: un golpe fuerte (`estrellar()`) quita una vida, suelta el último vagón y baja la
   confianza. Los golpes de frente cuentan; los roces no. `restarConfianza()` es el único lugar donde se
   decide que la fila se va: si llega a 0, se acaba la partida.
-- **La cabeza** es un carro simple: acelera sola, gira menos cuando va lento. La cámara la sigue
-  pegada y gira con ella (`C.camGiro`); en el celular vertical la cabeza va más arriba para que los
-  mandos no tapen la cola.
-- **Cada vagón** cuelga del de adelante con una barra de largo fijo que no dobla más de `C.dobla`.
-  Conserva parte de su impulso (`C.inercia`) y sus llantas frenan el deslizamiento de costado
-  (`C.agarre`). Por eso el zigzag del chofer se propaga y crece un poco hacia la cola.
+- **La cabeza** es un carro con modelo de bicicleta: gira a `velocidad × tan(volante) / ejes` (`C.ejes`,
+  `C.volanteMax`: un radio mínimo de unos 70 px), y a mucha velocidad lo limita el agarre (`C.agarreCab`).
+  Quieta no gira; con el freno parada retrocede hasta `C.reversa`, y en reversa gira al revés, como un carro.
+  La cámara la sigue pegada y gira con ella (`C.camGiro`); en el celular vertical la cabeza va más arriba
+  para que los mandos no tapen la cola, y en la estación sube más para que se vea por encima de la bandeja.
+- **Cada vagón** es un remolque de dos ejes (`moverVagones()`): la lanza (`C.lanza`) va del enganche del de
+  adelante al eje delantero, y el enganche dobla hasta `C.dobla`. El eje delantero gira con la lanza hasta
+  `C.giroEje`; el de atrás conserva parte de su impulso (`C.inercia`) y sus llantas frenan el deslizamiento de
+  costado (`C.agarre`). Por eso el zigzag del chofer se propaga y crece hacia la cola.
 - **Lo que siente el pasajero** es el empujón de costado: rapidez del vagón × lo que gira, más el
   deslizamiento. Entre `C.divDesde` y `C.miedoDesde` divierte, más arriba asusta y sobre `C.caidaDesde`
   alguien puede salir volando.
@@ -140,9 +150,6 @@ Todos los ajustes están en el objeto `C` al inicio del archivo. Desde la consol
 `gusanito.C` y `gusanito.S` dejan cambiarlos y mirar el estado en vivo; `gusanito.C.fantasma = true`
 apaga los choques, que sirve para calibrar.
 
-Valores medidos con 3 vagones a toda velocidad (empujón promedio, de la cabeza a la cola):
-zigzag de 0,4 s ≈ 430–450, vuelta cerrada ≈ 500–650, zigzag lento ≈ 200. Con `inercia` en 1 la cadena
-se desboca (cada vagón casi duplica al anterior); con 0,85 la cola ya casi no se mece.
 
 ## Para probarlo
 

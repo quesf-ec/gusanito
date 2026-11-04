@@ -13,10 +13,15 @@
     acel: 150, freno: 480,                             // la cabeza (la velocidad máxima va por nivel)
     giro: 2.5, giroSuave: 9,
     cabezaL: 78, cabezaA: 46,
-    vagonL: 58, vagonA: 44, barra: 16,
+    vagonL: 58, vagonA: 44,
+    // la cabeza es un carro: gira según el ángulo de las llantas y la distancia entre ejes (radio mínimo),
+    // y a mucha velocidad lo limita el agarre. Quieto no gira; en reversa gira al revés.
+    ejes: 50, volanteMax: 0.6, agarreCab: 650, reversa: 45,
+    // cada vagón es un remolque de dos ejes: la lanza tira del eje delantero, que gira con ella
+    lanza: 22, giroEje: 0.7,
     agarre: 6,              // cuánto frenan las llantas el deslizamiento lateral (1/s)
-    inercia: 0.92,          // cuánto conserva cada vagón su impulso: con 1 la cola se desboca, con 0.85 ya no se mece
-    dobla: 1.0,             // ángulo máximo entre un vagón y el de adelante (rad)
+    inercia: 0.975,         // cuánto impulso conserva el eje de atrás de cada vagón: más, la cola se desboca antes
+    dobla: 1.1,             // cuánto puede doblar el enganche entre la lanza y el de adelante (rad)
     vagonesMax: Infinity,   // sin tope: lo que limita el largo es que la cola se parte
     asientos: 4,
     aguanta: 1200,          // sacudida (la que siente la gente) que la barra aguanta sin cansarse
@@ -173,8 +178,10 @@
   }
 
   function nuevoVagon(x, y, ang, k) {
+    const ex = Math.cos(ang) * C.vagonL * 0.28, ey = Math.sin(ang) * C.vagonL * 0.28; // medio paso entre ejes
     return {
       x, y, vx: 0, vy: 0, ang, lat: 0, gir: 0, g: 0, fatiga: 0,
+      fx: x + ex, fy: y + ey, rx: x - ex, ry: y - ey, rvx: 0, rvy: 0, lz: ang, // eje delantero, eje trasero, lanza
       pal: PALETAS[(k + 1) % PALETAS.length],
       asientos: new Array(C.asientos).fill(null),
       golpe: 0,
@@ -210,7 +217,7 @@
     const ref = prev
       ? { x: prev.x - Math.cos(ang) * C.vagonL / 2, y: prev.y - Math.sin(ang) * C.vagonL / 2 }
       : { x: S.cab.x - Math.cos(ang) * C.cabezaL / 2, y: S.cab.y - Math.sin(ang) * C.cabezaL / 2 };
-    const d = C.barra + C.vagonL / 2;
+    const d = C.lanza + C.vagonL * 0.28; // del enganche al centro del vagón
     S.vagones.push(nuevoVagon(ref.x - Math.cos(ang) * d, ref.y - Math.sin(ang) * d, ang, n));
   }
 
@@ -351,12 +358,14 @@
     }
     // en la estación se queda quieto mientras baja y sube la gente (aunque ya no frenes)
     const subiendo = S.parando && S.est.carga > 0 && S.est.carga < 0.6;
-    if (entrada.freno || subiendo) k.v = Math.max(0, k.v - C.freno * dt);
+    if (entrada.freno && !subiendo && k.v <= 2) k.v = Math.max(-C.reversa, k.v - C.acel * 0.6 * dt); // parado y frenando: reversa
+    else if (entrada.freno || subiendo) k.v = Math.max(0, k.v - C.freno * dt);
     else if (k.v < vMax) k.v = Math.min(vMax, k.v + C.acel * dt * (k.v < 0 ? 3 : 1));
     else k.v = Math.max(vMax, k.v - C.freno * 0.3 * dt);
     // el volante siempre responde: parado también se puede girar (a menos velocidad)
-    const efecto = Math.max(0.6, clamp(Math.abs(k.v) / 90, 0, 1)) * Math.sign(k.v || 1);
-    k.ang += k.giro * C.giro * efecto * dt;
+    let w = k.v * Math.tan(k.giro * C.volanteMax) / C.ejes; // radio mínimo: ejes / tan(volante)
+    const wMax = C.agarreCab / Math.max(Math.abs(k.v), 1);  // a mucha velocidad, lo que aguantan las llantas
+    k.ang += clamp(w, -wMax, wMax) * dt;
     ayudar(k, meta, dt);
     const dx = Math.cos(k.ang), dy = Math.sin(k.ang);
     k.x += dx * k.v * dt; k.y += dy * k.v * dt;
@@ -429,43 +438,53 @@
     if (S.vagones.some((v) => v.fatiga > 0.6)) { S.avisos.cola = true; anunciar('¡La cola está a punto de partirse!', '#FFB3A8', 2.5, true); }
   }
 
+  // Cada vagón es un remolque de dos ejes, como los de verdad: la lanza va del enganche del de adelante al eje
+  // delantero, que gira con ella (hasta C.giroEje); el eje de atrás arrastra el cuerpo, conserva parte de su
+  // impulso (C.inercia) y sus llantas frenan el deslizamiento de costado. Así el zigzag se propaga y crece un
+  // poco hacia la cola.
   function moverVagones(dt) {
-    const k = S.cab;
-    let ax = Math.cos(k.ang), ay = Math.sin(k.ang);
-    let hx = k.x - ax * C.cabezaL / 2, hy = k.y - ay * C.cabezaL / 2; // enganche
-    const d = C.barra + C.vagonL / 2;
+    const k = S.cab, wb = C.vagonL * 0.56; // distancia entre ejes
+    let hx = k.x - Math.cos(k.ang) * C.cabezaL / 2, hy = k.y - Math.sin(k.ang) * C.cabezaL / 2; // enganche
     let pa = k.ang; // hacia dónde mira el de adelante
     for (const v of S.vagones) {
-      const ox = v.x, oy = v.y, oang = v.ang;
-      // inercia: lo que se arrastra del cuadro anterior (menos que 1 para que la cadena no se desboque)
-      v.x += v.vx * dt * C.inercia; v.y += v.vy * dt * C.inercia;
-      // la barra no se estira ni se encoge, y el enganche no dobla más de C.dobla
-      let b = Math.atan2(v.y - hy, v.x - hx);
-      let rel = b - (pa + Math.PI);
-      while (rel > Math.PI) rel -= 2 * Math.PI; while (rel < -Math.PI) rel += 2 * Math.PI;
+      const ocx = v.x, ocy = v.y, oang = v.ang, orx = v.rx, ory = v.ry;
+      // 1 · la lanza: el eje delantero queda a su largo del enganche, que dobla hasta C.dobla
+      let b = Math.atan2(v.fy - hy, v.fx - hx);
+      const rel = vuelta(b - (pa + Math.PI));
       if (Math.abs(rel) > C.dobla) b = pa + Math.PI + Math.sign(rel) * C.dobla;
-      v.x = hx + Math.cos(b) * d; v.y = hy + Math.sin(b) * d;
-      let ex, ey, l;
-      const golpe = resolver(v, C.vagonA / 2 - 2);
-      if (golpe) {
-        ex = v.x - hx; ey = v.y - hy; l = Math.hypot(ex, ey) || 1;
-        v.x = hx + ex / l * d; v.y = hy + ey / l * d;
-        if (v.golpe <= 0 && Math.hypot(v.vx, v.vy) > 120) { v.golpe = 0.6; polvo(v.x, v.y, 5); for (const p of v.asientos) if (p) p.miedo += 0.08 * (1 - 0.8 * S.dif.asist); }
+      v.fx = hx + Math.cos(b) * C.lanza; v.fy = hy + Math.sin(b) * C.lanza;
+      // 2 · el eje de atrás, con su impulso, sigue al de adelante a la distancia entre ejes
+      v.rx += v.rvx * dt * C.inercia; v.ry += v.rvy * dt * C.inercia;
+      let c = Math.atan2(v.ry - v.fy, v.rx - v.fx);
+      const lz = Math.atan2(hy - v.fy, hx - v.fx); // hacia dónde tira la lanza
+      const giroEje = vuelta(c + Math.PI - lz);     // cuánto está girado el eje delantero respecto del cuerpo
+      if (Math.abs(giroEje) > C.giroEje) c = lz + Math.sign(giroEje) * C.giroEje - Math.PI;
+      v.rx = v.fx + Math.cos(c) * wb; v.ry = v.fy + Math.sin(c) * wb;
+      // 3 · choques del cuerpo: se corre el eje de atrás
+      let cx = (v.fx + v.rx) / 2, cy = (v.fy + v.ry) / 2;
+      const o = { x: cx, y: cy };
+      if (resolver(o, C.vagonA / 2 - 2)) {
+        v.rx += 2 * (o.x - cx); v.ry += 2 * (o.y - cy);
+        const l = Math.hypot(v.rx - v.fx, v.ry - v.fy) || 1;
+        v.rx = v.fx + (v.rx - v.fx) / l * wb; v.ry = v.fy + (v.ry - v.fy) / l * wb;
+        cx = (v.fx + v.rx) / 2; cy = (v.fy + v.ry) / 2;
+        if (v.golpe <= 0 && Math.hypot(v.vx, v.vy) > 120) { v.golpe = 0.6; polvo(cx, cy, 5); for (const p of v.asientos) if (p) p.miedo += 0.08 * (1 - 0.8 * S.dif.asist); }
       }
       v.golpe -= dt;
-      v.ang = Math.atan2(hy - v.y, hx - v.x);
-      // velocidad que salió de la restricción
-      v.vx = (v.x - ox) / dt; v.vy = (v.y - oy) / dt;
-      // llantas: frenan el deslizamiento de costado, no el de frente
+      v.x = cx; v.y = cy;
+      v.ang = Math.atan2(v.fy - v.ry, v.fx - v.rx);
+      v.lz = Math.atan2(hy - v.fy, hx - v.fx);
+      // velocidades: la del eje de atrás (su impulso) y la del centro (lo que siente la gente)
+      v.rvx = (v.rx - orx) / dt; v.rvy = (v.ry - ory) / dt;
+      v.vx = (v.x - ocx) / dt; v.vy = (v.y - ocy) / dt;
       const fx = Math.cos(v.ang), fy = Math.sin(v.ang);
-      const lon = v.vx * fx + v.vy * fy;
-      let lat = -v.vx * fy + v.vy * fx;
-      lat *= Math.exp(-C.agarre * dt);
-      v.vx = fx * lon - fy * lat; v.vy = fy * lon + fx * lat;
+      const lonR = v.rvx * fx + v.rvy * fy;
+      const latR = (-v.rvx * fy + v.rvy * fx) * Math.exp(-C.agarre * dt); // las llantas de atrás frenan el costado
+      v.rvx = fx * lonR - fy * latR; v.rvy = fy * lonR + fx * latR;
+      const lon = v.vx * fx + v.vy * fy, lat = -v.vx * fy + v.vy * fx;
       v.lat += (Math.abs(lat) - v.lat) * Math.min(1, dt * 4); // suavizado para medir
       v.latSigno = Math.sign(lat);
-      let dang = v.ang - oang; while (dang > Math.PI) dang -= 2 * Math.PI; while (dang < -Math.PI) dang += 2 * Math.PI;
-      v.gir = dang / dt;
+      v.gir = vuelta(v.ang - oang) / dt;
       // lo que siente el pasajero: empujón de costado = rapidez × giro, más el deslizamiento
       const g = Math.abs(v.gir * lon) + Math.abs(lat) * C.agarre;
       v.g += (Math.min(g, 4000) - v.g) * Math.min(1, dt * 4); // tope solo para que los números no exploten
@@ -473,7 +492,7 @@
       // si se cansa del todo, la cola se parte
       const exceso = v.g / aguanta() - 1;
       v.fatiga = Math.max(0, (v.fatiga || 0) + (exceso > 0 ? exceso * C.fatiga : -C.recupera) * dt);
-      hx = v.x - fx * C.vagonL / 2; hy = v.y - fy * C.vagonL / 2;
+      hx = v.x - fx * C.vagonL / 2; hy = v.y - fy * C.vagonL / 2; // enganche de atrás de este vagón
       pa = v.ang;
     }
   }
@@ -606,6 +625,7 @@
     if (bajan) {
       S.viajes++;
       S.plata += cobro; S.total += cobro;
+      S.ultimo = { pct, cobro, devolver };
       if (cobro > 0) { texto(ESTACION.x, ESTACION.y - 60, '+' + plata(cobro), '#8BD43B', 2); sonar('plata'); }
       if (devolver) {
         S.devueltos += n;
@@ -660,23 +680,29 @@
   }
 
   const TIENDA = (() => ({
-    combustible: () => ({ nombre: S.comb <= 0 ? 'Combustible (¡hace falta!)' : 'Combustible', nota: `llena el tanque para ${C.combustible} vueltas · tienes ${S.comb}`, coste: precioComb(), hecho: S.comb >= C.combustible }),
-    vagon: () => ({ nombre: 'Vagón nuevo', nota: `ahora ${S.vagones.length} · caben ${capacidad() + 4} · más gente, más plata, la cola más brava`, coste: precioVagon(S.vagones.length + 1) }),
-    barras: () => ({ nombre: 'Barras reforzadas', nota: `la cola aguanta ${Math.round((0.3 * (S.barras + 1)) * 100)} % más`, coste: 30 * (S.barras + 1) }),
-    parlante: () => ({ nombre: S.parlante ? 'Parlante (ya lo tienes)' : 'Parlante con música', nota: 'la gente se divierte más rápido', coste: 60, hecho: S.parlante }),
-    luces: () => ({ nombre: S.luces ? 'Luces de colores (ya las tienes)' : 'Luces de colores', nota: 'puedes jugar de noche, y de noche cobras ×1,5', coste: 50, hecho: S.luces }),
-    noche: () => ({ nombre: S.noche ? 'De noche: sí' : 'De noche: no', nota: 'toca para cambiarlo (cobras ×1,5 de noche)', coste: 0, libre: true }),
+    combustible: () => ({ ico: '⛽', nombre: 'Combustible', nota: S.comb <= 0 ? '¡Sin combustible no sales!' : `quedan ${S.comb} de ${C.combustible} vueltas`, coste: precioComb(), hecho: S.comb >= C.combustible, listo: 'Lleno', urge: S.comb <= 1 }),
+    vagon: () => ({ ico: '🚃', nombre: 'Vagón nuevo', nota: `+4 asientos · la cola más brava`, coste: precioVagon(S.vagones.length + 1) }),
+    barras: () => ({ ico: '🔩', nombre: 'Barras reforzadas', nota: `la cola aguanta +30 %${S.barras ? ` (tienes ${S.barras})` : ''}`, coste: 30 * (S.barras + 1) }),
+    parlante: () => ({ ico: '🔊', nombre: 'Parlante', nota: 'se divierten más rápido', coste: 60, hecho: S.parlante, listo: 'Ya lo tienes' }),
+    luces: () => ({ ico: '💡', nombre: 'Luces', nota: 'juega de noche: cobras ×1,5', coste: 50, hecho: S.luces, listo: 'Ya las tienes' }),
+    noche: () => ({ ico: '🌙', nombre: 'De noche', nota: 'cobras ×1,5', coste: 0, libre: true }),
   }))();
   function renderTienda() {
     const ids = ['combustible', 'vagon', 'barras', 'parlante', 'luces'];
     if (S.luces) ids.push('noche');
     $('#tienda').innerHTML = ids.map((id) => {
-      const it = TIENDA[id](), no = !it.libre && (it.hecho || S.plata < it.coste);
-      return `<button class="btn" type="button" data-item="${id}"${no ? ' disabled' : ''}><span>${it.nombre}<small>${it.nota}</small></span>${it.libre || it.hecho ? '' : `<b>${plata(it.coste)}</b>`}</button>`;
+      const it = TIENDA[id](), falta = !it.libre && !it.hecho && S.plata < it.coste;
+      const etiqueta = it.libre ? (S.noche ? 'Sí' : 'No') : it.hecho ? '✓ ' + it.listo : falta ? `faltan ${plata(it.coste - S.plata)}` : plata(it.coste);
+      const clase = 'oferta' + (it.hecho ? ' oferta--hecho' : '') + (it.urge && !it.hecho ? ' oferta--urge' : '') + (it.libre && S.noche ? ' oferta--activa' : '');
+      return `<button class="${clase}" type="button" data-item="${id}"${it.hecho || falta ? ' disabled' : ''}><span class="oferta__ico" aria-hidden="true">${it.ico}</span><span class="oferta__nombre">${it.nombre}</span><span class="oferta__nota">${it.nota}</span><span class="oferta__precio">${etiqueta}</span></button>`;
     }).join('');
     $('#est-plata').textContent = plata(S.plata);
+    const u = S.ultimo;
+    const ultimo = !u ? 'Primera vuelta' : u.devolver ? `Última vuelta: ${u.pct} %, pidieron devuelto` : `Última vuelta: ${u.pct} % · +${plata(u.cobro)}`;
+    $('#est-resumen').textContent = `${aBordo()} a bordo · fila ${S.est.fila.length} · ${ultimo}`;
     $('#b-vamonos').disabled = S.comb <= 0 || aBordo() === 0;
-    $('#est-resumen').textContent = S.comb <= 0 ? 'Sin combustible no puedes salir: cómpralo para seguir.' : `Llevas ${aBordo()} pasajeros. Decide antes de salir.`;
+    $('#est-vamonos-nota').textContent = S.comb <= 0 ? 'primero compra combustible' : `gasta 1 de combustible (quedan ${S.comb})`;
+    actualizarHud(true); // la plata y las fichas de arriba también cambian al comprar
   }
   function comprar(id) {
     const it = TIENDA[id]();
@@ -910,12 +936,12 @@
   // así ◀ ▶ siempre son izquierda y derecha en la pantalla, vaya hacia donde vaya el gusanito.
   // altura de la pantalla donde va la cabeza: más abajo se ve más camino, más arriba se ve la cola
   // (en el celular vertical los mandos tapan la parte de abajo)
-  let PIVOTE = 0.64;
+  let PIVOTE = 0.64, piv = 0.64; // piv se acerca a PIVOTE (o más arriba, si estás en la estación)
   let camRot = 0;
   function aPantalla(x, y) {
     const dx = (x - S.cam.x) * zoom, dy = (y - S.cam.y) * zoom;
     const c = Math.cos(camRot), s = Math.sin(camRot);
-    return { x: W / 2 + dx * c - dy * s, y: H * PIVOTE + dx * s + dy * c };
+    return { x: W / 2 + dx * c - dy * s, y: H * piv + dx * s + dy * c };
   }
 
   function dibujar(dt) {
@@ -931,12 +957,13 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = '#3E7A3A';
     ctx.fillRect(0, 0, W, H);
-    ctx.translate(W / 2 + sx, H * PIVOTE + sy);
+    piv += ((S.decidiendo ? 0.3 : PIVOTE) - piv) * Math.min(1, dt * 4);
+    ctx.translate(W / 2 + sx, H * piv + sy);
     ctx.rotate(camRot);
     ctx.scale(zoom, zoom);
     ctx.translate(-S.cam.x, -S.cam.y);
     // lo que cabe en pantalla gire como gire: un cuadrado alrededor de la cabeza
-    const R = Math.hypot(W / 2, H * Math.max(PIVOTE, 1 - PIVOTE)) / zoom + 60;
+    const R = Math.hypot(W / 2, H * Math.max(piv, 1 - piv)) / zoom + 60;
     const ve = (x, y, w, h) => x + w > S.cam.x - R && x < S.cam.x + R && y + h > S.cam.y - R && y < S.cam.y + R;
 
     // calles
@@ -1177,7 +1204,7 @@
     let hx = k.x - Math.cos(k.ang) * C.cabezaL / 2, hy = k.y - Math.sin(k.ang) * C.cabezaL / 2;
     ctx.strokeStyle = '#2A2A2E'; ctx.lineWidth = 5; ctx.lineCap = 'round';
     for (const v of S.vagones) {
-      const fx = v.x + Math.cos(v.ang) * C.vagonL / 2, fy = v.y + Math.sin(v.ang) * C.vagonL / 2;
+      const fx = v.fx, fy = v.fy; // la lanza llega al eje delantero
       const f = v.fatiga || 0;
       ctx.strokeStyle = f > 0.5 ? '#E8458B' : f > 0.2 ? '#F2B33D' : '#2A2A2E';
       ctx.lineWidth = 5 + 3 * Math.min(1, f);
@@ -1186,9 +1213,14 @@
     }
   }
 
-  function llantas(l, a) {
+  // las llantas de adelante giran (con el volante en la cabeza, con la lanza en los vagones)
+  function llantas(l, a, giro = 0) {
     ctx.fillStyle = '#1C1C1F';
-    for (const sx of [-1, 1]) for (const sy of [-1, 1]) rr(sx * l * 0.28 - 8, sy * (a / 2) - 4 + (sy < 0 ? -2 : 2), 16, 8, 3), ctx.fill();
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      ctx.save(); ctx.translate(sx * l * 0.28, sy * (a / 2) + (sy < 0 ? -2 : 2));
+      if (sx > 0) ctx.rotate(giro);
+      rr(-8, -4, 16, 8, 3); ctx.fill(); ctx.restore();
+    }
   }
 
   function vagon(v, ultimo) {
@@ -1196,7 +1228,7 @@
     ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.ang);
     // ladeo visual: el cuerpo se inclina hacia afuera cuando se mece
     const ladeo = clamp(-Math.sign(v.gir) * v.g / 700, -1, 1);
-    llantas(l, a);
+    llantas(l, a, vuelta((v.lz ?? v.ang) - v.ang));
     ctx.translate(0, ladeo * 3);
     ctx.fillStyle = v.pal.borde; rr(-l / 2, -a / 2, l, a, a / 2.4); ctx.fill();
     ctx.fillStyle = v.pal.cuerpo; rr(-l / 2 + 3, -a / 2 + 3, l - 6, a - 6, a / 2.8); ctx.fill();
@@ -1261,7 +1293,7 @@
   function cabeza() {
     const k = S.cab, l = C.cabezaL, a = C.cabezaA, t = performance.now() / 1000;
     ctx.save(); ctx.translate(k.x, k.y); ctx.rotate(k.ang);
-    llantas(l, a);
+    llantas(l, a, k.giro * C.volanteMax);
     // cuerpo: escarabajo verde limón con franja fucsia
     ctx.fillStyle = '#E8458B'; rr(-l / 2, -a / 2, l, a, a / 2); ctx.fill();
     ctx.fillStyle = '#8BD43B'; rr(-l / 2 + 3, -a / 2 + 3, l - 6, a - 6, a / 2.3); ctx.fill();
@@ -1331,7 +1363,7 @@
     if (S.vuelta === null || S.fin || S.decidiendo) return;
     const avg = diversion();
     if (avg === null) return;
-    const x = W / 2 + Math.max(58, 70 * zoom), alto = 104, ancho = 12, top = H * PIVOTE - alto / 2;
+    const x = W / 2 + Math.max(58, 70 * zoom), alto = 104, ancho = 12, top = H * piv - alto / 2;
     const col = avg >= 0.995 ? '#F2E14B' : avg >= C.minDiv ? '#8BD43B' : '#F2B33D';
     ctx.fillStyle = 'rgba(20,12,30,.55)'; rr(x - 11, top - 32, ancho + 22, alto + 56, 12); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,.18)'; rr(x, top, ancho, alto, 6); ctx.fill();
@@ -1369,7 +1401,7 @@
   // freno ni la cola). Parpadea cuando ya hay que volver.
   function flechas() {
     if (Math.hypot(ESTACION.x - S.cab.x, ESTACION.y - S.cab.y) < 420) return; // ya está aquí cerca
-    const q = aPantalla(ESTACION.x, ESTACION.y), cx = W / 2, cy = H * PIVOTE;
+    const q = aPantalla(ESTACION.x, ESTACION.y), cx = W / 2, cy = H * piv;
     const a = Math.atan2(q.y - cy, q.x - cx), r = Math.min(150, Math.min(W, H) * 0.34);
     // si la estación queda detrás, la flecha se pone a un costado de la cola (sin dejar de apuntarle)
     let b = a; const atras = vuelta(a - Math.PI / 2);
@@ -1567,5 +1599,5 @@
   requestAnimationFrame((t) => { ultimo = t; cuadro(t); });
 
   // Para probar y calibrar desde la consola
-  window.gusanito = { C, get S() { return S; }, entrada, agregar: agregarVagon, NIVELES, nivelDe, redondeles, bloques, PARQUE, ESTACION, abrirEstacion, salir, comprar, subirFila };
+  window.gusanito = { C, get S() { return S; }, entrada, teclado, agregar: agregarVagon, NIVELES, nivelDe, redondeles, bloques, PARQUE, ESTACION, abrirEstacion, salir, comprar, subirFila };
 })();

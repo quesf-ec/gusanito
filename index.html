@@ -43,7 +43,7 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 .ficha-dato b.mal{color:#FFB3A8}
 /* avisos: una franja propia, debajo de la barra, como mucho dos */
 .avisos{display:grid;gap:4px;justify-items:center;pointer-events:none}
-.aviso{font-family:var(--mal-display,sans-serif);font-weight:900;font-size:clamp(.95rem,.85rem + .7vw,1.25rem);line-height:1.2;text-align:center;
+.aviso{font-family:var(--mal-texto,sans-serif);font-weight:900;font-size:clamp(.9rem,.82rem + .45vw,1.1rem);line-height:1.25;text-align:center;
   color:#fff;padding:3px 12px;border-radius:10px;background:rgba(20,12,30,.55);text-shadow:0 2px 0 rgba(30,15,40,.9);max-width:min(92vw,520px)}
 .aviso--chico{font-family:var(--mal-texto,sans-serif);font-weight:700;font-size:.85rem}
 /* abajo: solo el freno (para girar se toca cualquier punto de la mitad izquierda o derecha) */
@@ -67,11 +67,36 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 .resumen{display:grid;grid-template-columns:1fr auto;gap:6px var(--mal-e4);font-variant-numeric:tabular-nums}
 .resumen dt{color:var(--mal-on-surface-3)}
 .resumen dd{margin:0;font-weight:700;text-align:right}
-.tienda{display:grid;gap:var(--mal-e2)}
-.tienda .btn{display:flex;justify-content:space-between;align-items:center;gap:var(--mal-e2);text-align:left;width:100%;min-height:52px;padding-inline:var(--mal-e3)}
-.tienda .btn span{display:grid;gap:2px}
-.tienda .btn small{font-weight:400;opacity:.75;font-size:var(--mal-t-micro)}
-.tienda .btn b{white-space:nowrap}
+/* la estación: una bandeja abajo, para que se vea el gusanito y la fila arriba */
+.capa--hoja{place-items:end center;padding:0;background:linear-gradient(to top,rgba(20,12,30,.6),rgba(20,12,30,0) 65%)}
+.hoja{width:min(100%,600px);display:grid;gap:10px;padding:14px 14px calc(14px + env(safe-area-inset-bottom));border-radius:22px 22px 0 0;
+  background:rgba(28,16,40,.95);color:#fff;box-shadow:0 -6px 24px rgba(0,0,0,.35);max-height:62dvh;overflow:auto}
+.hoja__cab{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.hoja__titulo{margin:0;font-weight:900;font-size:1.05rem;white-space:nowrap}
+.hoja__resumen{margin:2px 0 0;font-size:.82rem;opacity:.85}
+.hoja__plata{margin:0;display:grid;justify-items:end;line-height:1.1}
+.hoja__plata small{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;opacity:.7}
+.hoja__plata b{font-size:1.45rem;font-variant-numeric:tabular-nums}
+.tienda{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(148px,42%);gap:8px;overflow-x:auto;overscroll-behavior-x:contain;
+  scroll-snap-type:x mandatory;padding-bottom:4px;scrollbar-width:thin}
+.tienda > *{scroll-snap-align:start}
+.oferta{display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:2px;align-content:start;text-align:left;padding:10px;border-radius:14px;
+  border:2px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#fff;font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.oferta__ico{grid-row:1 / span 2;font-size:1.6rem;line-height:1.2}
+.oferta__nombre{font-weight:800;font-size:.92rem;line-height:1.2}
+.oferta__nota{font-size:.74rem;opacity:.75;line-height:1.25}
+.oferta__precio{grid-column:1 / -1;justify-self:start;margin-top:6px;padding:2px 10px;border-radius:999px;background:#F2B33D;color:#24150F;font-weight:900;font-size:.85rem}
+.oferta:not(:disabled):active{transform:translateY(1px)}
+.oferta:disabled{cursor:default}
+.oferta:disabled:not(.oferta--hecho){opacity:.55}
+.oferta:disabled .oferta__precio{background:rgba(255,255,255,.16);color:#fff}
+.oferta--hecho .oferta__precio{background:#8BD43B;color:#24150F}
+.oferta--urge{border-color:#FF8A7A;background:rgba(214,56,43,.22)}
+.oferta--activa{border-color:#F2E14B}
+.vamonos{display:grid;justify-items:center;gap:2px;width:100%;padding:12px;border:0;border-radius:16px;background:#E8458B;color:#fff;
+  font:900 1.3rem/1.1 var(--mal-display,sans-serif);cursor:pointer;box-shadow:0 4px 0 #9B1D5A}
+.vamonos small{font:700 .74rem/1.2 var(--mal-texto,sans-serif);opacity:.9}
+.vamonos:disabled{background:rgba(255,255,255,.18);box-shadow:none;cursor:default}
 .btn-block{width:100%}
 </style>
 <script type="application/ld+json">
@@ -125,7 +150,7 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
       <p class="kicker">Fiestas del pueblo</p>
       <h1 id="t-juego">El gusanito</h1>
       <ol class="pasos">
-        <li><b class="n">1</b><p><b>Para girar</b>, toca y mantén la mitad <b>izquierda</b> o <b>derecha</b> de la pantalla (o ← →). Para frenar, el botón <b>Freno</b> o los dos lados a la vez.</p></li>
+        <li><b class="n">1</b><p><b>Para girar</b>, toca y mantén la mitad <b>izquierda</b> o <b>derecha</b> de la pantalla (o ← →). Gira como un carro de verdad: necesita espacio y quieto no gira. <b>Freno</b> (o los dos lados a la vez) frena, y si ya estás parado, va en <b>reversa</b>.</p></li>
         <li><b class="n">2</b><p>La gente sube en la <b>estación del parque</b>. Diviértelos con zigzag y <b>redondeles</b>: la carita junto al gusanito muestra cuánto. La raya blanca es el <b>75 %</b>.</p></li>
         <li><b class="n">3</b><p>Se bajan al final de la vuelta, o antes si llegan al <b>100 %</b>. Con menos de 75 % <b>piden devuelto</b>; si te demoras, la fila <b>se va</b>.</p></li>
         <li><b class="n">4</b><p>En la estación compras <b>combustible</b> (cada vuelta gasta), <b>vagones</b> (más gente, más plata, la cola más brava), barras, parlante o luces para la <b>noche</b>.</p></li>
@@ -145,15 +170,18 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
     </div>
   </div>
 
-  <!-- En la estación: decide antes de salir -->
-  <div class="capa" id="c-estacion" hidden>
-    <div class="vidrio pila capa__panel" role="dialog" aria-labelledby="t-estacion">
-      <p class="kicker">En la estación</p>
-      <h2 id="t-estacion">Decide antes de salir</h2>
-      <p class="caption" id="est-resumen"></p>
-      <p class="micro">Tienes <b id="est-plata">$0,00</b></p>
+  <!-- En la estación: una bandeja abajo; el gusanito y la fila se siguen viendo arriba -->
+  <div class="capa capa--hoja" id="c-estacion" hidden>
+    <div class="hoja" role="dialog" aria-labelledby="t-estacion">
+      <div class="hoja__cab">
+        <div>
+          <p class="hoja__titulo" id="t-estacion">Estación del parque</p>
+          <p class="hoja__resumen" id="est-resumen"></p>
+        </div>
+        <p class="hoja__plata"><small>Tienes</small><b id="est-plata">$0,00</b></p>
+      </div>
       <div class="tienda" id="tienda"></div>
-      <button class="btn btn--rojo boton-juego btn-block" id="b-vamonos" data-foco type="button">¡Vámonos!</button>
+      <button class="vamonos" id="b-vamonos" data-foco type="button">¡Vámonos!<small id="est-vamonos-nota"></small></button>
     </div>
   </div>
 
@@ -182,6 +210,6 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 </main>
 
 <script src="https://franciscombp.github.io/ds/mal/mal.js?v=1.0.22" defer></script>
-<script src="gusanito.js?v=11"></script>
+<script src="gusanito.js?v=12"></script>
 </body>
 </html>
