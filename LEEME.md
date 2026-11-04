@@ -13,35 +13,38 @@ presentación va en una.red, no aquí.
 
 - El gusanito arranca **estacionado en la estación del parque**, con 2 vagones. La gente hace fila en la
   vereda del parque y se sube.
-- Cada **vuelta** tiene su tiempo (45 s, y 4 s más por cada vagón de más). En ese tiempo hay que **hacerlos
-  felices**: zigzag y **redondeles** (ahí el meneo vale ×1,5). Si vas recto sin gracia, se aburren un poco.
-  Atrás se siente más.
-- **Regresa a la estación** y para ahí: todos se bajan y **pagan según su alegría** ($0,25 si vienen
-  aburridos, hasta $1,25 felices, más $0,25 de propina si además no se asustaron). Luego sube la siguiente
-  tanda de la fila.
-- Si **te demoras** más que la vuelta, la gente de la fila se cansa y **se va** (cada uno baja la
-  **confianza** de la fila). Los pasajeros también se aburren. A los 12 s del final te avisa y la flecha
-  amarilla parpadea.
-- Si la vuelta dura **menos de 25 s**, o si alguien baja **aburrido** (alegría menor a 30 %), **piden
-  devuelto**: no pagan y la fila se molesta.
-- **La plata trae vagones**: al juntar $8, $20, $35, $55, $80 y $110 se engancha otro (hasta 8). Caben 4
-  personas más por vagón, pero con cada uno el gusanito va más rápido, la ayuda al manejar baja, la gente
-  se asusta y sale volando más fácil, y hay más danzantes y perros.
+- En cada **vuelta** hay que **hacerlos felices**: zigzag y **redondeles** (ahí el meneo vale ×1,5). Si vas
+  recto sin gracia, se aburren un poco. Atrás se siente más.
+- Cada **vuelta completa por dentro de un redondel** da **puntos extra**: $0,50 más $0,10 por pasajero
+  a bordo (de noche, ×1,5).
+- Cada vuelta tiene su tiempo (45 s, y 4 s más por cada vagón de más). Si te demoras, la fila se cansa y
+  **se va** (cada uno baja la **confianza** de la fila).
+- **Regresa a la estación** y para ahí. Todos bajan y pagan según su alegría ($0,25 si vienen aburridos,
+  hasta $1,25 felices, más $0,25 de propina si además no se asustaron). Si la vuelta fue muy corta (menos
+  de 25 s) o alguien bajó aburrido (alegría menor a 30 %), **piden devuelto**: no pagan y la fila se molesta.
+- **En la estación decides, y el tiempo se para** hasta que digas **¡Vámonos!** La plata se gasta aquí:
+  - **Vagón nuevo**: su precio sube con cada vagón ($8, $20, $35…). Más vagones = más gente y más plata
+    por vuelta, pero una cola más larga se sacude más. Si hay gente en la fila, sube al nuevo.
+  - **Barras reforzadas** ($30, $60…): la cola aguanta más sacudida antes de cansarse.
+  - **Parlante con música** ($60): la gente se divierte más rápido; se ve en el último vagón.
+  - **Luces de colores** ($50): desbloquean **De noche**. De noche cobras ×1,5 y todo se oscurece con las luces.
+  - **¡Vámonos!** arranca la siguiente vuelta. Hace falta que haya al menos un pasajero a bordo.
 - **No hay reloj de fiesta y no hay tope de largo.** Mientras más vagones, más se sacude la cola, y el
   gusanito se acaba cuando:
   - **La cola se parte**: cada barra se cansa cuando la sacudida de la cola pasa de lo que aguanta
-    (`C.aguanta`), y se recupera cuando no. Si una se cansa del todo, se suelta todo lo de atrás (con su
-    gente, que se cae) y se acaba. Medido sin paredes: con 4 u 8 vagones no se partió en 25 s de zigzag;
-    con 10 vagones y zigzag amplio la cola llega casi al límite; con 12 y zigzag amplio se partió a los 3,3 s (inercia 0,92). Las barras se ponen rosas y luego amarillas cuando
-    se cansan, y aparece el aviso «la cola está a punto de partirse».
+    (`C.aguanta`, más con las barras reforzadas), y se recupera cuando no. Si una se cansa del todo, se
+    suelta todo lo de atrás (con su gente, que se cae) y se acaba. Medido sin paredes con inercia 0,92: con
+    4 u 8 vagones no se partió en 25 s de zigzag; con 10 y zigzag amplio llegó casi al límite; con 12 y zigzag
+    amplio se partió a los 3,3 s. Las barras se ponen rosas y luego amarillas cuando se cansan, y aparece el
+    aviso «la cola está a punto de partirse».
   - **Te quedan sin vidas** (♥♥♥): tres golpes contra casas, árboles, el kiosco o el borde. Cada golpe
     **suelta el último vagón** (con su gente, que se cae) y le baja la confianza a la fila. Con dos
     vagones ya no se suelta más.
   - **Nadie quiere subirse**: la confianza de la fila llega a 0 porque la gente se fue esperando, pidió
     devuelto o le fue mal en los golpes. Con poca confianza, la fila casi no llega.
-- **La meta es el gusanito más largo.** Lo que cuenta es el **pico**: el mayor número de vagones que
-  llegaste a tener, aunque después se haya partido o perdido vagones. Cada 5 vagones nuevos sale un
-  aviso. El récord del navegador guarda el pico más alto.
+- **Dos récords** (se guardan en el navegador): el **gusanito más largo** (el pico de vagones que llegaste a
+  tener, aunque después se haya partido) y las **más vueltas** (viajes a la estación). Cada 5 vagones nuevos
+  sale un aviso.
 - El gusanito acelera solo. **← →** (o los botones ◀ ▶ en el celular) para girar, **↓ / espacio / Freno**
   para frenar. **P** o **Esc** para pausar. Con el celular acostado, el freno va a la derecha.
 - La **cámara gira con la cabeza**: la trompa siempre apunta hacia arriba, así ◀ ▶ siempre son izquierda
@@ -51,16 +54,18 @@ presentación va en una.red, no aquí.
 
 ### El pueblo
 
-5×5 cuadras grandes (560 px) con calles de 210 px. En el centro, el **parque** con su kiosco y la
-estación en su lado de abajo. **8 redondeles**: uno en cada esquina del parque y cuatro más en el pueblo.
-Las cuadras de alrededor tienen la esquina recortada en curva.
+5×5 cuadras grandes (560 px) con calles de 210 px. El **parque** ocupa dos cuadras de largo (560 × 1330 px),
+con el kiosco en el centro y la **estación** en su lado de abajo, con una bahía de 520 px para estacionar.
+Hay **como mucho un redondel por cuadra**: se eligen solos en las esquinas (`redondeles`), ninguno toca el
+parque, y las cuadras de alrededor tienen la esquina recortada en curva. Los caminantes y los perros no
+cruzan el parque.
 
 ### Cómo sube la dificultad
 
 Todo está en la tabla `NIVELES` al inicio de `gusanito.js`, por cantidad de vagones:
 
-| Vagones | Se engancha al juntar | Velocidad | Ayuda | Danzantes | Perros |
-|--------:|----------------------:|----------:|------:|----------:|-------:|
+| Vagones | Precio del vagón (en la estación) | Velocidad | Ayuda | Danzantes | Perros |
+|--------:|----------------------------------:|----------:|------:|----------:|-------:|
 | 2 | (al empezar) | 165 | 100 % | 0 | 3 |
 | 3 | $8 | 185 | 80 % | 1 | 4 |
 | 4 | $20 | 200 | 60 % | 2 | 5 |
@@ -70,14 +75,28 @@ Todo está en la tabla `NIVELES` al inicio de `gusanito.js`, por cantidad de vag
 | 8 | $110 | 250 | 0 | 6 | 8 |
 
 Después del 8 no hay tabla: cada vagón nuevo cuesta $40 más (`precioVagon()`), y la velocidad, la ayuda y
-la cantidad de danzantes y perros se quedan en el nivel de 8. Los vagones se cuentan con la plata juntada
-(lo que se paga, sin descontar devoluciones). No hay tope: `C.vagonesMax` es infinito.
+la cantidad de danzantes y perros se quedan en el nivel de 8. El precio se **gasta**: no es un umbral que
+se cruza solo. No hay tope: `C.vagonesMax` es infinito.
 
 **La ayuda al manejar** (`ayudar()`): si la trompa va a dar contra algo, se desvía hacia el lado libre y
 frena un poco; si no tocas ◀ ▶, se endereza con la calle y se centra (en los redondeles no, para que
 puedas dar vueltas). Nunca te pelea el volante: si giras hacia la pared, te deja. Cerca de la estación,
 afloja. Con ayuda, rozar una pared no cuenta como golpe. En la estación se queda quieto solo mientras
 baja y sube la gente.
+
+## Referencias (benchmark)
+
+Juegos con mecánicas parecidas que sirvieron de referencia. Lo que tomamos y lo que no:
+
+- **Mini Metro** (tener capacidad y mejoras entre semanas): la partida se pausa para decidir mejoras, en
+  lugar de seguir sola. Así sale la tienda en la estación. Fuente: [Mini Metro en TV Tropes](https://tvtropes.org/pmwiki/pmwiki.php/VideoGame/MiniMetro) y [reseña en PocketGamer](https://www.pocketgamer.com/mini-metro/review/). Las mejoras y las capacidades de los vagones vienen de notas de versiones antiguas: no lo verifiqué en la versión actual.
+- **Slither.io** (la longitud es el puntaje, y más largo = más difícil de manejar): el largo es el récord y
+  el peligro sube con él. Fuente: [wiki de Slither.io: Length](https://slitherio-archive.fandom.com/wiki/Length?oldid=1438). Es una wiki de fans, no documentación oficial.
+- **RollerCoaster Tycoon** (la gente abandona si espera mucho): de ahí sale la confianza de la fila. Fuente:
+  [wiki de RCT: visitantes y personal](https://rct.fandom.com/wiki/Guests_and_Staff). No encontré una fórmula
+  exacta de la paciencia.
+- **Crazy Taxi** (pagar según el tiempo y los trayectos): no confirmé en las fuentes que la propina baje con
+  el tiempo, así que no lo usamos. Referencia general: [Crazy Taxi en Wikipedia](https://en.wikipedia.org/wiki/Crazy_Taxi).
 
 ## Cómo está hecho
 

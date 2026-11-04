@@ -50,6 +50,7 @@
   const nivelDe = (vagones) => NIVELES[clamp(vagones - 2, 0, NIVELES.length - 1)];
   // plata juntada que hace falta para el vagón número n (la tabla llega hasta 8; después cada uno cuesta $40 más)
   const precioVagon = (n) => (n <= 8 ? NIVELES[Math.max(0, n - 2)].ganado : 110 + (n - 8) * 40);
+  const aguanta = () => C.aguanta * (1 + 0.3 * S.barras);
 
   const PALETAS = [
     { cuerpo: '#8BD43B', borde: '#E8458B', toldo: ['#F2B33D', '#E8458B', '#5FB4E6', '#8BD43B'] },
@@ -77,22 +78,37 @@
   const plata = (n) => (n < 0 ? '-$' : '$') + Math.abs(n).toFixed(2).replace('.', ',');
 
   // ─── El pueblo ─────────────────────────────────────────────────────
-  // Cuadras grandes con casas de teja; en el centro, el parque con la estación del gusanito;
-  // redondeles en las cuatro esquinas del parque y en otras cuatro esquinas del pueblo.
+  // Cuadras grandes con casas de teja. El parque ocupa dos cuadras de largo (una encima de la otra), con la
+  // estación en su lado de abajo. Hay como mucho un redondel por cuadra, en una de sus esquinas.
   const paso = C.bloque + C.calle;
   const ANCHO = C.cols * C.bloque + (C.cols + 1) * C.calle;
   const ALTO = C.filas * C.bloque + (C.filas + 1) * C.calle;
   const esquina = (i, j) => ({ x: C.calle / 2 + i * paso, y: C.calle / 2 + j * paso });
   const PARQUE = { i: 2, j: 2 };
-  const redondeles = [[2, 2], [3, 2], [2, 3], [3, 3], [1, 1], [4, 1], [1, 4], [4, 4]].map(([i, j]) => ({ ...esquina(i, j), R: C.redondel, isla: C.isla }));
+  const parqueCuadras = new Set(['2,2', '2,3']);
+  const ocupada = new Set(parqueCuadras);
+  const cuadrasDe = (i, j) => [[i - 1, j - 1], [i, j - 1], [i - 1, j], [i, j]].filter(([a, b]) => a >= 0 && b >= 0 && a < C.cols && b < C.filas);
+  const cruces = [];
+  for (let j = 1; j < C.filas; j++) for (let i = 1; i < C.cols; i++) cruces.push([i, j]); // primero, las esquinas de adentro
+  for (let j = 0; j <= C.filas; j++) for (let i = 0; i <= C.cols; i++) if (i === 0 || j === 0 || i === C.cols || j === C.filas) cruces.push([i, j]);
+  const redondeles = [];
+  for (const [i, j] of cruces) {
+    const cs = cuadrasDe(i, j);
+    if (cs.some(([a, b]) => ocupada.has(a + ',' + b))) continue; // esa cuadra ya tiene su redondel (o es el parque)
+    redondeles.push({ ...esquina(i, j), R: C.redondel, isla: C.isla, i, j });
+    for (const [a, b] of cs) ocupada.add(a + ',' + b);
+  }
   const bloques = [];
   for (let j = 0; j < C.filas; j++) {
     for (let i = 0; i < C.cols; i++) {
+      const clave = i + ',' + j;
+      if (clave === '2,3') continue; // es parte del parque de arriba
       const x = C.calle + i * paso, y = C.calle + j * paso;
-      const b = { x, y, w: C.bloque, h: C.bloque, casas: [], cortes: [] };
+      const parque = clave === '2,2';
+      const b = { x, y, w: C.bloque, h: parque ? C.bloque * 2 + C.calle : C.bloque, casas: [], cortes: [], parque };
       // los redondeles de sus esquinas le comen un pedazo redondo
       for (const r of redondeles) if (Math.abs(r.x - (x + b.w / 2)) < b.w && Math.abs(r.y - (y + b.h / 2)) < b.h) b.cortes.push(r);
-      if (i === PARQUE.i && j === PARQUE.j) { b.parque = true; PARQUE.b = b; PARQUE.cx = x + b.w / 2; PARQUE.cy = y + b.h / 2; }
+      if (parque) { PARQUE.b = b; PARQUE.cx = x + b.w / 2; PARQUE.cy = y + b.h / 2; }
       else {
         // 4×4 lotes: los del centro son patios con árboles
         const l = C.bloque / 4;
@@ -109,9 +125,9 @@
     }
   }
   const enRedondel = (x, y, m = 0) => redondeles.some((r) => Math.hypot(x - r.x, y - r.y) < r.R + m);
+  const enParque = (x, y, m = 0) => x > PARQUE.b.x - m && x < PARQUE.b.x + PARQUE.b.w + m && y > PARQUE.b.y - m && y < PARQUE.b.y + PARQUE.b.h + m;
 
-  // La estación: en la calle de abajo del parque, pegada a su vereda. El gusanito arranca ahí,
-  // mirando hacia la derecha, y la gente hace fila en la vereda del parque.
+  // La estación: en el lado de abajo del parque, pegada a la vereda. El gusanito arranca ahí, mirando a la derecha.
   const ESTACION = { x: PARQUE.cx, y: PARQUE.b.y + PARQUE.b.h + 40, ang: 0 };
 
   // Banderines: cruzan algunas calles
@@ -156,6 +172,7 @@
     S = {
       plata: 0, viajes: 0, felices: 0, asustados: 0, caidos: 0, choques: 0, seFueron: 0, devueltos: 0,
       vidas: C.vidas, confianza: 100, viajeT: 0, motivo: null, pico: 2, rompiendo: 0,
+      decidiendo: false, ronda: null, vueltasRedondel: 0, total: 0, barras: 0, parlante: false, luces: false, noche: false,
       corriendo: false, fin: false,
       cab: { x: x0, y: y0, ang: 0, v: 0, giro: 0, golpe: 0, enfriar: 0 },
       vagones: [], caminantes: [], volando: [], textos: [], chispas: [], anuncios: [], seVan: [],
@@ -220,6 +237,7 @@
     if (ex + paso < ANCHO) op.push([1, 0]);
     if (ey - paso > 0) op.push([0, -1]);
     if (ey + paso < ALTO) op.push([0, 1]);
+    for (let n = op.length - 1; n >= 0; n--) if (op.length > 1 && enParque(ex + op[n][0] * paso / 2, ey + op[n][1] * paso / 2, 10)) op.splice(n, 1);
     const [dx, dy] = elige(op), f = azar(0.2, 0.8), lado = (Math.random() < 0.5 ? -1 : 1) * azar(45, 80);
     c.ruta = [
       { x: ex + azar(-40, 40), y: ey + azar(-40, 40) },
@@ -232,6 +250,7 @@
     if (c.x + paso < ANCHO) op.push({ x: c.x + paso, y: c.y });
     if (c.y - paso > 0) op.push({ x: c.x, y: c.y - paso });
     if (c.y + paso < ALTO) op.push({ x: c.x, y: c.y + paso });
+    for (let n = op.length - 1; n >= 0; n--) if (op.length > 1 && enParque((c.x + op[n].x) / 2, (c.y + op[n].y) / 2, 10)) op.splice(n, 1);
     c.dest = elige(op);
     // se mueven por un carril, no por el centro exacto
     const lado = (Math.random() < 0.5 ? -1 : 1) * azar(10, 50);
@@ -438,7 +457,7 @@
       v.g += (Math.min(g, 4000) - v.g) * Math.min(1, dt * 4); // tope solo para que los números no exploten
       // la barra se cansa mientras la cola la sacude más de lo que aguanta, y se recupera cuando no:
       // si se cansa del todo, la cola se parte
-      const exceso = v.g / C.aguanta - 1;
+      const exceso = v.g / aguanta() - 1;
       v.fatiga = Math.max(0, (v.fatiga || 0) + (exceso > 0 ? exceso * C.fatiga : -C.recupera) * dt);
       hx = v.x - fx * C.vagonL / 2; hy = v.y - fy * C.vagonL / 2;
       pa = v.ang;
@@ -460,7 +479,7 @@
         p.t += dt;
         if (e > C.divDesde) {
           const tramo = Math.min(e, C.divLleno, d.miedo) - C.divDesde;
-          p.div += tramo / (C.divLleno - C.divDesde) * C.ritmoDiv * d.ritmo * extra * dt;
+          p.div += tramo / (C.divLleno - C.divDesde) * C.ritmoDiv * d.ritmo * extra * (S.parlante ? 1.25 : 1) * dt;
         } else p.div -= (lento ? 0.04 : 0.025) * dt; // sin meneo se aburren (y parados, más)
         if (tarde) p.div -= 0.05 * dt;          // ya quieren bajarse
         if (e > d.miedo) p.miedo += (e - d.miedo) / 250 * dt;
@@ -527,12 +546,12 @@
       }
     }
     // ¿paró en la estación?
-    const cerca = Math.hypot(ESTACION.x - k.x, ESTACION.y - k.y) < 140 || S.vagones.slice(0, 2).some((v) => Math.hypot(ESTACION.x - v.x, ESTACION.y - v.y) < 90);
+    const cerca = Math.hypot(ESTACION.x - k.x, ESTACION.y - k.y) < 240 || S.vagones.slice(0, 2).some((v) => Math.hypot(ESTACION.x - v.x, ESTACION.y - v.y) < 150);
     S.parando = 0;
     if (cerca && Math.abs(k.v) < 40) {
       S.parando = 1;
       e.carga += dt;
-      if (e.carga >= 0.6) { llegada(); e.carga = -99; }
+      if (e.carga >= 0.6) { e.carga = -99; llegada(); }
     } else if (e.carga > 0) e.carga = Math.max(0, e.carga - dt);
     if (e.carga < -1 && !cerca) e.carga = 0; // ya salió: la próxima vez que pare, cuenta
     for (let n = S.seVan.length - 1; n >= 0; n--) { const q = S.seVan[n]; q.t += dt; q.x += q.dir * 60 * dt; if (q.t > 3) S.seVan.splice(n, 1); }
@@ -554,11 +573,11 @@
       if (corta || f < 0.3) { devs++; continue; }
       let pago = 0.25 + 1.0 * f;
       if (f >= 0.9) { S.felices++; if (q.miedo < 0.3) pago += 0.25; } // propina
-      cobro += Math.round(pago * 20) / 20;
+      cobro += Math.round(pago * (S.noche ? 1.5 : 1) * 20) / 20;
     }
     if (bajan) {
       S.viajes++;
-      S.plata += cobro;
+      S.plata += cobro; S.total += cobro;
       const alegria = Math.round((suma / bajan) * 100);
       if (cobro > 0) { texto(ESTACION.x, ESTACION.y - 60, '+' + plata(cobro), '#8BD43B', 2); sonar('plata'); }
       if (devs) {
@@ -576,30 +595,93 @@
         anunciar('Bajaron asustados', '#FFB3A8', 3);
       }
     }
-    // 2 · con la plata juntada se engancha otro vagón
-    let nuevos = 0;
-    while (S.plata >= precioVagon(S.vagones.length + 1)) {
-      agregarVagon(); nuevos++;
-      if (S.vagones.length > S.pico) { S.pico = S.vagones.length; if (S.pico % 5 === 0) anunciar(`¡${S.pico} vagones!`, '#F2E14B', 3); }
+    // 2 · sube la siguiente tanda; con gente arriba se para a decidir antes de salir
+    const suben = subirFila();
+    if (suben) {
+      S.avisos = {};
+      texto(ESTACION.x, ESTACION.y - 30, `Subieron ${suben}`, '#fff', 1.4);
+      if (S.primera) { S.primera = false; anunciar('¡Dales una buena vuelta!', '#F2E14B', 4.5); anunciar('Zigzag y redondeles: el meneo los pone felices', '#fff', 4.5, true); }
+      abrirEstacion();
+    } else {
+      S.vuelta = null;
+      if (!S.avisos.vacio) { S.avisos.vacio = true; texto(ESTACION.x, ESTACION.y - 30, 'No hay nadie en la fila', '#fff', 1.4); }
+      S.est.carga = -0.4; // vuelve a revisar la fila en un segundo
     }
-    if (nuevos) {
-      S.dif = nivelDe(S.vagones.length);
-      ajustarCaminantes();
-      anunciar(nuevos > 1 ? `¡${nuevos} vagones nuevos!` : '¡Vagón nuevo!', '#F2E14B', 3.5);
-      anunciar(`Ahora caben ${capacidad()} · la cola es más brava`, '#fff', 3.5, true);
-      confeti(S.cab.x, S.cab.y, 40);
-      sonar('nivel');
-    }
-    // 3 · sube la siguiente tanda
+  }
+
+  function subirFila() {
     let suben = 0;
     for (const v of S.vagones) for (let s = 0; s < v.asientos.length; s++) {
       if (!v.asientos[s] && S.est.fila.length) { v.asientos[s] = S.est.fila.shift(); suben++; }
     }
-    if (suben) {
-      S.vuelta = duracionVuelta(); S.avisos = {};
-      texto(ESTACION.x, ESTACION.y - 30, `Subieron ${suben}`, '#fff', 1.4);
-      if (S.primera) { S.primera = false; anunciar('¡Dales una buena vuelta!', '#F2E14B', 4.5); anunciar('Zigzag y redondeles: el meneo los pone felices', '#fff', 4.5, true); }
-    } else { S.vuelta = null; texto(ESTACION.x, ESTACION.y - 30, 'No hay nadie en la fila', '#fff', 1.4); }
+    return suben;
+  }
+
+  // ─── Decidir en la estación: el tiempo se para hasta que digas ¡Vámonos! ─
+  function abrirEstacion() {
+    S.decidiendo = true; S.corriendo = false; S.vuelta = null; musica(false);
+    mostrar('estacion');
+    renderTienda();
+  }
+  function salir() {
+    if (!S.decidiendo || aBordo() === 0) return;
+    S.decidiendo = false; S.vuelta = duracionVuelta(); S.viajeT = 0; S.est.carga = -99;
+    audio(); mostrar(null); S.corriendo = true; musica(true);
+  }
+
+  const TIENDA = (() => ({
+    vagon: () => ({ nombre: 'Vagón nuevo', nota: `ahora ${S.vagones.length} · caben ${capacidad() + 4} · más gente, más plata, la cola más brava`, coste: precioVagon(S.vagones.length + 1) }),
+    barras: () => ({ nombre: 'Barras reforzadas', nota: `la cola aguanta ${Math.round((1 + 0.3 * (S.barras + 1) - 1) * 100)} % más`, coste: 30 * (S.barras + 1) }),
+    parlante: () => ({ nombre: S.parlante ? 'Parlante (ya lo tienes)' : 'Parlante con música', nota: 'la gente se divierte más rápido', coste: 60, hecho: S.parlante }),
+    luces: () => ({ nombre: S.luces ? 'Luces de colores (ya las tienes)' : 'Luces de colores', nota: 'puedes jugar de noche, y de noche cobras ×1,5', coste: 50, hecho: S.luces }),
+    noche: () => ({ nombre: S.noche ? 'De noche: sí' : 'De noche: no', nota: 'toca para cambiarlo (cobras ×1,5 de noche)', coste: 0, libre: true }),
+  }))();
+  function renderTienda() {
+    const ids = ['vagon', 'barras', 'parlante', 'luces'];
+    if (S.luces) ids.push('noche');
+    $('#tienda').innerHTML = ids.map((id) => {
+      const it = TIENDA[id](), no = !it.libre && (it.hecho || S.plata < it.coste);
+      return `<button class="btn" type="button" data-item="${id}"${no ? ' disabled' : ''}><span>${it.nombre}<small>${it.nota}</small></span>${it.libre || it.hecho ? '' : `<b>${plata(it.coste)}</b>`}</button>`;
+    }).join('');
+    $('#est-plata').textContent = plata(S.plata);
+    $('#est-resumen').textContent = `Llevas ${aBordo()} pasajeros y el viaje cuesta cuidado: decide antes de salir.`;
+  }
+  function comprar(id) {
+    const it = TIENDA[id]();
+    if (!it.libre) { if (it.hecho || S.plata < it.coste) return; S.plata -= it.coste; }
+    if (id === 'vagon') {
+      agregarVagon();
+      S.dif = nivelDe(S.vagones.length); S.pico = Math.max(S.pico, S.vagones.length);
+      ajustarCaminantes();
+      const n = subirFila();
+      if (S.pico % 5 === 0) anunciar(`¡${S.pico} vagones!`, '#F2E14B', 3);
+      texto(S.cab.x, S.cab.y - 50, n ? `¡Vagón nuevo! Subieron ${n}` : '¡Vagón nuevo!', '#F2E14B', 1.8);
+      confeti(S.cab.x, S.cab.y, 30);
+      sonar('nivel');
+    } else if (id === 'barras') { S.barras++; sonar('plata'); }
+    else if (id === 'parlante') { S.parlante = true; sonar('feliz'); }
+    else if (id === 'luces') { S.luces = true; sonar('feliz'); }
+    else if (id === 'noche') { S.noche = !S.noche; }
+    renderTienda();
+  }
+
+  // Vueltas al redondel: una vuelta completa por dentro de un redondel da puntos extra (de noche, más)
+  function contarRedondel() {
+    const k = S.cab;
+    const r = redondeles.find((q) => { const d = Math.hypot(k.x - q.x, k.y - q.y); return d > q.isla + 25 && d < q.R - 10; });
+    if (!r) { S.ronda = null; return; }
+    const a = Math.atan2(k.y - r.y, k.x - r.x);
+    if (!S.ronda || S.ronda.r !== r) { S.ronda = { r, last: a, acc: 0 }; return; }
+    let d = a - S.ronda.last; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+    S.ronda.acc += d; S.ronda.last = a;
+    if (Math.abs(S.ronda.acc) >= 2 * Math.PI) {
+      S.ronda.acc -= Math.sign(S.ronda.acc) * 2 * Math.PI;
+      S.vueltasRedondel++;
+      const bono = Math.round((0.5 + 0.1 * aBordo()) * (S.noche ? 1.5 : 1) * 100) / 100;
+      S.plata += bono; S.total += bono;
+      texto(k.x, k.y - 50, `¡Vuelta al redondel! +${plata(bono)}`, '#F2E14B', 1.8);
+      sonar('plata');
+    }
   }
 
   function caminantes(dt) {
@@ -753,7 +835,7 @@
       const sub = 3, h = dt / sub;
       for (let s = 0; s < sub; s++) { moverCabeza(h); moverVagones(h); }
       pasajeros(dt); estacion(dt); caminantes(dt);
-      romperSiHaceFalta(); colaAviso();
+      romperSiHaceFalta(); colaAviso(); contarRedondel();
       if (S.rompiendo > 0 && (S.rompiendo -= dt) <= 0) terminar('partio');
       actualizarHud();
     }
@@ -859,6 +941,16 @@
 
     // textos derechos en la pantalla, aunque el pueblo esté girado
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (S.noche) { // de noche todo se oscurece y las luces de colores alumbran
+      ctx.fillStyle = 'rgba(8,8,40,.52)'; ctx.fillRect(0, 0, W, H);
+      ctx.globalCompositeOperation = 'lighter';
+      const luz = (x, y, r, c) => { const q = aPantalla(x, y), g = ctx.createRadialGradient(q.x, q.y, 2, q.x, q.y, r * zoom); g.addColorStop(0, c); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(q.x - r * zoom, q.y - r * zoom, 2 * r * zoom, 2 * r * zoom); };
+      luz(k.x, k.y, 110, 'rgba(255,220,120,.55)');
+      for (const v of S.vagones) luz(v.x, v.y, 80, 'rgba(255,120,200,.4)');
+      luz(ESTACION.x, ESTACION.y, 170, 'rgba(255,230,140,.4)');
+      for (const q of redondeles) luz(q.x, q.y, 90, 'rgba(120,220,255,.35)');
+      ctx.globalCompositeOperation = 'source-over';
+    }
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const fuente = Math.round(clamp(22 * zoom, 16, 28));
     ctx.font = `900 ${fuente}px Montserrat, "Arial Black", sans-serif`;
@@ -924,6 +1016,12 @@
       ctx.fillStyle = '#2F6B33'; ctx.beginPath(); ctx.arc(x, y, 34, 0, 7); ctx.fill();
       ctx.fillStyle = '#3F8A40'; ctx.beginPath(); ctx.arc(x - 6, y - 6, 24, 0, 7); ctx.fill();
     }
+    // árboles a lo largo del parque
+    for (let t = 0.12; t < 0.9; t += 0.22) for (const side of [-1, 1]) {
+      const x = b.x + (side < 0 ? 0.16 : 0.84) * b.w, y = b.y + t * b.h;
+      ctx.fillStyle = '#2F6B33'; ctx.beginPath(); ctx.arc(x, y, 30, 0, 7); ctx.fill();
+      ctx.fillStyle = '#3F8A40'; ctx.beginPath(); ctx.arc(x - 5, y - 5, 20, 0, 7); ctx.fill();
+    }
     // kiosco
     const o = { x: PARQUE.cx, y: PARQUE.cy, r: 56 };
     ctx.fillStyle = '#F1ECE2'; ctx.beginPath(); ctx.arc(o.x, o.y, o.r + 8, 0, 7); ctx.fill();
@@ -962,8 +1060,8 @@
     const e = S.est, x = ESTACION.x, y = ESTACION.y, k = S.cab;
     ctx.save(); ctx.translate(x, y);
     ctx.strokeStyle = e.carga > 0 ? '#8BD43B' : '#F2E14B'; ctx.lineWidth = 5; ctx.setLineDash([14, 10]);
-    rr(-170, -30, 340, 92, 16); ctx.stroke(); ctx.setLineDash([]);
-    if (e.carga > 0) { ctx.fillStyle = 'rgba(139,212,59,.35)'; rr(-170, -30, 340 * Math.min(1, e.carga / 0.6), 92, 16); ctx.fill(); }
+    rr(-260, -30, 520, 92, 16); ctx.stroke(); ctx.setLineDash([]);
+    if (e.carga > 0) { ctx.fillStyle = 'rgba(139,212,59,.35)'; rr(-260, -30, 520 * Math.min(1, e.carga / 0.6), 92, 16); ctx.fill(); }
     ctx.font = '900 26px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = 'rgba(242,225,75,.55)'; ctx.fillText('ESTACIÓN', 0, 46);
     ctx.restore();
@@ -1072,6 +1170,10 @@
     if (ultimo) {
       const col = ['#E8458B', '#F2B33D', '#F2E14B', '#8BD43B', '#5FB4E6', '#7E3592'];
       for (let n = 0; n < col.length; n++) { ctx.fillStyle = col[n]; ctx.beginPath(); ctx.ellipse(-l / 2 + 2, 0, 9 - n * 1.3, 17 - n * 2.6, 0, Math.PI / 2, Math.PI * 1.5); ctx.fill(); }
+    }
+    if (ultimo && S.parlante) { // parlante: una caja con dos bocinas en el centro del último vagón
+      ctx.fillStyle = '#24150F'; rr(-5, -7, 10, 14, 2); ctx.fill();
+      ctx.fillStyle = '#5FB4E6'; ctx.beginPath(); ctx.arc(0, -3.5, 2.5, 0, 7); ctx.arc(0, 3.5, 2.5, 0, 7); ctx.fill();
     }
     // asientos y gente (2×2)
     const pos = [[10, -9], [10, 9], [-12, -9], [-12, 9]];
@@ -1207,14 +1309,14 @@
   }
 
   // ─── HUD ───────────────────────────────────────────────────────────
-  const h = { largo: $('#h-largo'), plata: $('#h-plata'), gente: $('#h-gente'), alegria: $('#h-alegria'), vuelta: $('#h-vuelta'), vidas: $('#h-vidas'), fila: $('#h-fila'), vagon: $('#h-vagon') };
+  const h = { largo: $('#h-largo'), plata: $('#h-plata'), gente: $('#h-gente'), alegria: $('#h-alegria'), vuelta: $('#h-vuelta'), vidas: $('#h-vidas'), fila: $('#h-fila'), vagon: $('#h-vagon'), vueltas: $('#h-vueltas') };
   const reloj = (x) => Math.floor(x / 60) + ':' + String(x % 60).padStart(2, '0');
   let hudCache = '';
   function actualizarHud(forzar) {
     let n = 0, cap = 0, div = 0;
     for (const v of S.vagones) for (const p of v.asientos) { cap++; if (p) { n++; div += p.div; } }
     const vt = S.vuelta === null ? null : Math.ceil(S.vuelta);
-    const clave = [S.vagones.length, S.plata.toFixed(2), n, cap, Math.round(n ? (div / n) * 100 : 0), vt, S.est.fila.length, S.vidas, Math.round(S.confianza)].join('|');
+    const clave = [S.vagones.length, S.plata.toFixed(2), n, cap, Math.round(n ? (div / n) * 100 : 0), vt, S.est.fila.length, S.vidas, Math.round(S.confianza), S.viajes, S.vueltasRedondel].join('|');
     if (clave === hudCache && !forzar) return;
     hudCache = clave;
     h.largo.firstChild.nodeValue = S.vagones.length;
@@ -1225,11 +1327,12 @@
     h.vuelta.classList.toggle('poco', vt !== null && vt <= 12);
     h.vidas.textContent = '♥'.repeat(S.vidas) + '♡'.repeat(Math.max(0, C.vidas - S.vidas));
     h.fila.textContent = `Fila ${S.est.fila.length} · confianza ${Math.round(S.confianza)} %`;
-    h.vagon.textContent = `Otro vagón al juntar ${plata(precioVagon(S.vagones.length + 1))} · récord ${S.pico}`;
+    h.vagon.textContent = `Próximo vagón: ${plata(precioVagon(S.vagones.length + 1))} · récord ${S.pico}`;
+    h.vueltas.textContent = `Vueltas ${S.viajes} · redondel ${S.vueltasRedondel}`;
   }
 
   // ─── Capas ─────────────────────────────────────────────────────────
-  const capas = { inicio: $('#c-inicio'), pausa: $('#c-pausa'), fin: $('#c-fin') };
+  const capas = { inicio: $('#c-inicio'), pausa: $('#c-pausa'), fin: $('#c-fin'), estacion: $('#c-estacion') };
   const hud = $('.hud-juego');
   const cifras = $('.hud-juego__cifras');
   // Con una capa abierta el HUD queda inerte (ni foco ni clics) y el foco va al botón principal de la
@@ -1237,22 +1340,24 @@
   function mostrar(cual) {
     for (const [k, el] of Object.entries(capas)) el.hidden = k !== cual;
     hud.inert = cual !== null;
-    if (cual) capas[cual].querySelector('button')?.focus({ preventScroll: true });
+    if (cual) (capas[cual].querySelector('[data-foco]') || capas[cual].querySelector('button'))?.focus({ preventScroll: true });
     else if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   }
-  function arrancar() { if (S.corriendo) return; audio(); mostrar(null); S.corriendo = true; musica(true); }
+  function arrancar() { if (S.corriendo || S.decidiendo) return; audio(); mostrar(null); S.corriendo = true; musica(true); }
   function pausar() { if (!S.corriendo) return; S.corriendo = false; mostrar('pausa'); musica(false); }
-  let mejorLargo = 0;
+  let mejorLargo = 0, mejorVueltas = 0;
   function terminar(motivo) {
     if (S.fin) return;
-    S.corriendo = false; S.fin = true; S.motivo = motivo; musica(false); sonar('fin');
-    // el récord es el gusanito más largo: en memoria y, si se puede, también en el navegador
-    const largo = S.pico;
-    let guardado = 0;
-    try { guardado = +localStorage.getItem('gusanito.largo') || 0; } catch { /* sin almacenamiento */ }
-    mejorLargo = Math.max(mejorLargo, guardado, largo);
-    try { localStorage.setItem('gusanito.largo', mejorLargo); } catch { /* sin almacenamiento */ }
+    S.corriendo = false; S.fin = true; S.decidiendo = false; S.motivo = motivo; musica(false); sonar('fin');
+    // dos récords: el gusanito más largo (pico) y más vueltas; en memoria y, si se puede, en el navegador
+    const largo = S.pico, vueltas = S.viajes;
+    let g1 = 0, g2 = 0;
+    try { g1 = +localStorage.getItem('gusanito.largo') || 0; g2 = +localStorage.getItem('gusanito.vueltas') || 0; } catch { /* sin almacenamiento */ }
+    mejorLargo = Math.max(mejorLargo, g1, largo);
+    mejorVueltas = Math.max(mejorVueltas, g2, vueltas);
+    try { localStorage.setItem('gusanito.largo', mejorLargo); localStorage.setItem('gusanito.vueltas', mejorVueltas); } catch { /* sin almacenamiento */ }
     const vagones = (n) => n + (n === 1 ? ' vagón' : ' vagones');
+    const vueltasTxt = (n) => n + (n === 1 ? ' vuelta' : ' vueltas');
     $('#fin-kicker').textContent = motivo === 'golpes' ? 'Se acabaron las vidas' : motivo === 'partio' ? 'La cola se partió' : 'Nadie quiere subirse';
     $('#t-fin').textContent = vagones(largo);
     $('#fin-frase').textContent = (motivo === 'golpes'
@@ -1260,9 +1365,11 @@
       : motivo === 'partio' ? 'Creció tanto que la cola ya no aguantó. '
       : 'La fila perdió la confianza: esperaron mucho o no se divirtieron. ')
       + (largo >= 8 ? '¡Un gusanito de fiesta de verdad!' : largo >= 5 ? 'Buen largo: la fila te quiso.' : 'La próxima, más vagones: junta más plata.');
-    $('#r-viajes').textContent = S.viajes; $('#r-felices').textContent = S.felices; $('#r-sefueron').textContent = S.seFueron;
-    $('#r-devueltos').textContent = S.devueltos; $('#r-asustados').textContent = S.asustados; $('#r-caidos').textContent = S.caidos;
-    $('#r-choques').textContent = S.choques; $('#r-plata').textContent = plata(S.plata); $('#r-record').textContent = vagones(mejorLargo);
+    $('#r-viajes').textContent = vueltasTxt(vueltas); $('#r-redondel').textContent = S.vueltasRedondel;
+    $('#r-felices').textContent = S.felices; $('#r-sefueron').textContent = S.seFueron; $('#r-devueltos').textContent = S.devueltos;
+    $('#r-asustados').textContent = S.asustados; $('#r-caidos').textContent = S.caidos; $('#r-choques').textContent = S.choques;
+    $('#r-total').textContent = plata(S.total);
+    $('#r-record').textContent = vagones(mejorLargo); $('#r-record-vueltas').textContent = vueltasTxt(mejorVueltas);
     mostrar('fin');
   }
   $('#b-arrancar').addEventListener('click', arrancar);
@@ -1270,6 +1377,8 @@
   $('#b-reiniciar').addEventListener('click', () => { reiniciar(); arrancar(); });
   $('#b-otra').addEventListener('click', () => { reiniciar(); arrancar(); });
   $('#b-pausa').addEventListener('click', pausar);
+  $('#b-vamonos').addEventListener('click', salir);
+  $('#tienda').addEventListener('click', (e) => { const b = e.target.closest('[data-item]'); if (b && !b.disabled) comprar(b.dataset.item); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) pausar(); });
 
   // ─── Mandos ────────────────────────────────────────────────────────
@@ -1363,5 +1472,5 @@
   requestAnimationFrame((t) => { ultimo = t; cuadro(t); });
 
   // Para probar y calibrar desde la consola
-  window.gusanito = { C, get S() { return S; }, entrada, agregar: agregarVagon, NIVELES, nivelDe };
+  window.gusanito = { C, get S() { return S; }, entrada, agregar: agregarVagon, NIVELES, nivelDe, redondeles, bloques, PARQUE, ESTACION, abrirEstacion, salir, comprar, subirFila };
 })();
