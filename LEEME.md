@@ -1,0 +1,50 @@
+# El gusanito
+
+El trencito de las fiestas de los pueblos del Ecuador: una cabeza con cara de gusano (casi siempre un
+escarabajo transformado, con ojos de pestañas, labios rojos y antenas) que arrastra vagones de fibra de
+vidrio con toldos de colores. El chofer zigzaguea y da vueltas para que los vagones se mezan y la gente
+grite.
+
+Por ahora es un **prototipo arcade** para probar esa mecánica. Se juega en `juego/`; `index.html` es la
+página de presentación con el juego embebido, igual que en los otros juegos de Quesf.
+
+## Cómo se juega
+
+- El gusanito acelera solo. **← →** (o los botones ◀ ▶ en el celular) para girar, **↓ / espacio / Freno**
+  para frenar. **P** o **Esc** para pausar.
+- Frena en una **parada** (círculo amarillo con letrero) para que suba la gente.
+- **Zigzag y vueltas**: el meneo llena la diversión de cada pasajero (la barrita amarilla bajo cada uno).
+  Los de atrás sienten más. En la **plaza** vale doble.
+- Si te pasas, se asustan (gotita azul) y, con latigazos muy fuertes, **salen volando** (−$1).
+- Los felices (corazón) se bajan en la siguiente parada y pagan $1, con propina si no se asustaron.
+  Cada 8 felices se engancha **un vagón más** (hasta 8): más plata, pero la cola es más brava.
+- Chocar contra las casas asusta a todos; topar a los **danzantes** o a los **perros** cuesta $0,50.
+- La vuelta dura 2 minutos.
+
+## Cómo está hecho
+
+Todo en `juego/gusanito.js`, en canvas 2D, sin dependencias aparte del sistema de diseño MAL para el
+HUD y las capas.
+
+- **La cabeza** es un carro simple: acelera sola, gira menos cuando va lento.
+- **Cada vagón** cuelga del de adelante con una barra de largo fijo que no dobla más de `C.dobla`.
+  Conserva parte de su impulso (`C.inercia`) y sus llantas frenan el deslizamiento de costado
+  (`C.agarre`). Por eso el zigzag del chofer se propaga y crece un poco hacia la cola.
+- **Lo que siente el pasajero** es el empujón de costado: rapidez del vagón × lo que gira, más el
+  deslizamiento. Entre `C.divDesde` y `C.miedoDesde` divierte, más arriba asusta y sobre `C.caidaDesde`
+  alguien puede salir volando.
+
+Todos los ajustes están en el objeto `C` al inicio del archivo. Desde la consola del navegador,
+`gusanito.C` y `gusanito.S` dejan cambiarlos y mirar el estado en vivo; `gusanito.C.fantasma = true`
+apaga los choques, que sirve para calibrar.
+
+Valores medidos con 3 vagones a toda velocidad (empujón promedio, de la cabeza a la cola):
+zigzag de 0,4 s ≈ 430–450, vuelta cerrada ≈ 500–650, zigzag lento ≈ 200. Con `inercia` en 1 la cadena
+se desboca (cada vagón casi duplica al anterior); con 0,85 la cola ya casi no se mece.
+
+## Para probarlo
+
+```sh
+python3 -m http.server
+# y abrir http://localhost:8000/juego/
+```

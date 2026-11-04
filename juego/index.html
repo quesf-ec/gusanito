@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es" data-marca="gusanito">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>El gusanito · Fiestas del pueblo</title>
+<meta name="description" content="Maneja el gusanito de las fiestas: recoge a la gente en las paradas, haz zigzag para que los vagones bailen y la cola dé latigazos, y llévalos felices sin que nadie salga volando.">
+<meta name="theme-color" content="#2A1B3D">
+<link rel="canonical" href="https://quesf-ec.github.io/gusanito/juego/">
+<link rel="icon" href="../img/icono-gusanito.svg" type="image/svg+xml">
+<link rel="preload" href="https://franciscombp.github.io/ds/fonts/montserrat.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="https://franciscombp.github.io/ds/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="https://franciscombp.github.io/ds/mal/mal.css?v=1.0.22">
+<style>
+/* Solo el lienzo, los controles táctiles y las capas. Lo demás
+   —.hud-juego, .marcador, .boton-juego, .vidrio, .medidor— es del sistema. */
+html,body{height:100%}
+body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;background:#2A1B3D}
+.escena{position:fixed;inset:0}
+#pueblo{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.hud-juego{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;
+  padding:max(var(--mal-e3), env(safe-area-inset-top)) max(var(--mal-e3), env(safe-area-inset-right))
+          max(var(--mal-e3), env(safe-area-inset-bottom)) max(var(--mal-e3), env(safe-area-inset-left));
+  pointer-events:none;z-index:1}
+.hud-juego__arriba .fila{display:flex;gap:var(--mal-e2)}
+.hud-juego__cifras{gap:6px}
+.cifras{display:flex;gap:var(--mal-e4);align-items:flex-start}
+.cifras .marcador{font-size:clamp(1.4rem, 1rem + 2vw, 2.2rem);color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.35)}
+.cifras .marcador small{color:rgba(255,255,255,.75)}
+.alegria{width:min(46vw, 220px);display:grid;gap:4px}
+.alegria .micro{color:#fff;margin:0;display:flex;justify-content:space-between;font-weight:700;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+.alegria .medidor--continuo{height:10px;background:rgba(0,0,0,.35)}
+.alegria .medidor--continuo > i{display:block;height:100%;width:0;border-radius:inherit;
+  background:linear-gradient(90deg,#F2B33D,#E8458B,#7E3592);transition:width .2s}
+.mandos{display:flex;gap:var(--mal-e2);width:100%;justify-content:space-between;align-items:flex-end}
+.mando{pointer-events:auto;touch-action:none;width:clamp(68px, 20vw, 96px);height:clamp(68px, 20vw, 96px);border-radius:50%;
+  border:3px solid rgba(255,255,255,.85);background:rgba(42,27,61,.45);color:#fff;font:800 1.9rem/1 var(--mal-display, sans-serif);
+  display:grid;place-items:center;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(4px)}
+.mando--freno{width:clamp(96px, 30vw, 140px);border-radius:999px;font:800 .95rem/1 var(--mal-texto, sans-serif);letter-spacing:.08em;text-transform:uppercase;background:rgba(214,56,43,.55)}
+.mando.activo{background:rgba(242,179,61,.75);color:#2A1B3D}
+.teclas{color:#fff;opacity:.8;font-size:var(--mal-t-micro);text-align:center;margin:0 0 var(--mal-e2);text-shadow:0 1px 0 rgba(0,0,0,.5)}
+@media (hover:hover) and (pointer:fine){ .mandos{display:none} }
+@media not ((hover:hover) and (pointer:fine)){ .teclas{display:none} }
+
+.capa{position:absolute;inset:0;display:grid;place-items:center;padding:var(--mal-e4);background:rgba(25,14,36,.55);z-index:10}
+.capa[hidden]{display:none}
+.capa__panel{width:min(100%, 460px);max-height:calc(100dvh - 2*var(--mal-e4));overflow:auto;padding:var(--mal-e5);gap:var(--mal-e3)}
+.capa__panel h1,.capa__panel h2{margin:0}
+.capa__panel p{margin:0}
+.pasos{display:grid;gap:var(--mal-e3);margin:0;padding:0;list-style:none}
+.pasos li{display:grid;grid-template-columns:auto 1fr;gap:var(--mal-e3);align-items:start}
+.pasos b.n{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#E8458B;color:#fff;font-family:var(--mal-display, sans-serif)}
+.resumen{display:grid;grid-template-columns:1fr auto;gap:6px var(--mal-e4);font-variant-numeric:tabular-nums}
+.resumen dt{color:var(--mal-on-surface-3)}
+.resumen dd{margin:0;font-weight:700;text-align:right}
+.btn-block{width:100%}
+</style>
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "VideoGame",
+ "name": "El gusanito",
+ "url": "https://quesf-ec.github.io/gusanito/juego/",
+ "inLanguage": "es",
+ "applicationCategory": "GameApplication",
+ "operatingSystem": "Web",
+ "isAccessibleForFree": true,
+ "author": {"@type": "Person", "name": "Francisco Maldonado", "url": "https://maldonado.pro/"}
+}
+</script>
+</head>
+<body>
+<main class="escena">
+  <canvas id="pueblo" role="img" aria-label="Un pueblo en fiestas visto desde arriba: calles con banderines, una plaza con su kiosco y el gusanito de colores con sus vagones llenos de gente"></canvas>
+
+  <div class="hud-juego">
+    <div class="hud-juego__arriba">
+      <div class="fila">
+        <button class="btn btn--icono" id="b-pausa" type="button" aria-label="Pausa">
+          <svg class="icono" aria-hidden="true"><use href="#i-menu"/></svg></button>
+        <button class="btn btn--icono" id="b-sonido" type="button" aria-label="Sonido" aria-pressed="true">
+          <svg class="icono" aria-hidden="true"><use href="#i-altavoz"/></svg></button>
+      </div>
+      <div class="hud-juego__cifras">
+        <div class="cifras">
+          <p class="marcador" id="h-tiempo">2:00<small>la vuelta</small></p>
+          <p class="marcador" id="h-plata" aria-live="polite">$0,00<small>la plata</small></p>
+        </div>
+        <div class="alegria">
+          <p class="micro"><span>Alegría</span><span id="h-gente">0/12</span></p>
+          <div class="medidor medidor--continuo" aria-hidden="true"><i id="h-alegria"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud-juego__abajo" style="flex-direction:column;align-items:stretch">
+      <p class="teclas">← → para girar · ↓ o espacio para frenar · el gusanito acelera solo</p>
+      <div class="mandos">
+        <button class="mando" id="m-izq" type="button" aria-label="Girar a la izquierda">◀</button>
+        <button class="mando mando--freno" id="m-freno" type="button">Freno</button>
+        <button class="mando" id="m-der" type="button" aria-label="Girar a la derecha">▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Portada -->
+  <div class="capa" id="c-inicio">
+    <div class="vidrio pila capa__panel" role="dialog" aria-labelledby="t-juego">
+      <p class="kicker">Fiestas del pueblo</p>
+      <h1 id="t-juego">El gusanito</h1>
+      <ol class="pasos">
+        <li><b class="n">1</b><p><b>Frena en las paradas</b> (las de letrero amarillo) para que suba la gente.</p></li>
+        <li><b class="n">2</b><p><b>Haz zigzag y da vueltas</b>: los vagones se mecen y la cola da latigazos. ¡Eso es lo que les gusta! Atrás se siente más.</p></li>
+        <li><b class="n">3</b><p><b>No te pases de brusco</b>: si la cola va muy rápido, la gente se asusta… o sale volando.</p></li>
+        <li><b class="n">4</b><p>Los que ya se divirtieron se bajan en la siguiente parada y <b>pagan</b>. Con más gente feliz, el gusanito <b>crece</b>.</p></li>
+      </ol>
+      <p class="caption">En la plaza las vueltas valen doble. Cuidado con los danzantes y los perros.</p>
+      <button class="btn btn--rojo boton-juego btn-block" id="b-arrancar" type="button">¡Arrancar!</button>
+    </div>
+  </div>
+
+  <!-- Pausa -->
+  <div class="capa" id="c-pausa" hidden>
+    <div class="vidrio pila capa__panel" role="dialog" aria-labelledby="t-pausa">
+      <p class="kicker">En pausa</p>
+      <h2 id="t-pausa">El gusanito espera</h2>
+      <button class="btn btn--rojo boton-juego btn-block" id="b-seguir" type="button">Seguir</button>
+      <button class="btn btn-block" id="b-reiniciar" type="button">Empezar de nuevo</button>
+    </div>
+  </div>
+
+  <!-- Fin de la vuelta -->
+  <div class="capa" id="c-fin" hidden>
+    <div class="vidrio pila capa__panel" role="dialog" aria-labelledby="t-fin">
+      <p class="kicker">Se acabó la vuelta</p>
+      <h2 id="t-fin">$0,00</h2>
+      <p class="caption" id="fin-frase"></p>
+      <dl class="resumen">
+        <dt>Pasajeros felices</dt><dd id="r-felices">0</dd>
+        <dt>Se bajaron asustados</dt><dd id="r-asustados">0</dd>
+        <dt>Salieron volando</dt><dd id="r-caidos">0</dd>
+        <dt>Choques</dt><dd id="r-choques">0</dd>
+        <dt>Vagones al final</dt><dd id="r-vagones">0</dd>
+        <dt>Tu récord</dt><dd id="r-record">$0,00</dd>
+      </dl>
+      <button class="btn btn--rojo boton-juego btn-block" id="b-otra" type="button">Otra vuelta</button>
+    </div>
+  </div>
+</main>
+
+<script src="https://franciscombp.github.io/ds/mal/mal.js?v=1.0.22" defer></script>
+<script src="gusanito.js?v=1"></script>
+</body>
+</html>
