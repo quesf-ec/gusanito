@@ -27,14 +27,21 @@ presentación va en una.red, no aquí.
 - **La plata trae vagones**: al juntar $8, $20, $35, $55, $80 y $110 se engancha otro (hasta 8). Caben 4
   personas más por vagón, pero con cada uno el gusanito va más rápido, la ayuda al manejar baja, la gente
   se asusta y sale volando más fácil, y hay más danzantes y perros.
-- **No hay reloj de fiesta.** Se acaba cuando:
+- **No hay reloj de fiesta y no hay tope de largo.** Mientras más vagones, más se sacude la cola, y el
+  gusanito se acaba cuando:
+  - **La cola se parte**: cada barra se cansa cuando la sacudida de la cola pasa de lo que aguanta
+    (`C.aguanta`), y se recupera cuando no. Si una se cansa del todo, se suelta todo lo de atrás (con su
+    gente, que se cae) y se acaba. Con zigzag amplio, la cola se empieza a partir hacia los 10 vagones;
+    con zigzag suave y pocos vagones, no se parte. Las barras se ponen rosas y luego amarillas cuando
+    se cansan, y aparece el aviso «la cola está a punto de partirse».
   - **Te quedan sin vidas** (♥♥♥): tres golpes contra casas, árboles, el kiosco o el borde. Cada golpe
     **suelta el último vagón** (con su gente, que se cae) y le baja la confianza a la fila. Con dos
     vagones ya no se suelta más.
   - **Nadie quiere subirse**: la confianza de la fila llega a 0 porque la gente se fue esperando, pidió
     devuelto o le fue mal en los golpes. Con poca confianza, la fila casi no llega.
-- **La meta es el gusanito más largo.** Lo que cuenta al final son los vagones; el récord del navegador
-  guarda el más largo que hayas logrado.
+- **La meta es el gusanito más largo.** Lo que cuenta es el **pico**: el mayor número de vagones que
+  llegaste a tener, aunque después se haya partido o perdido vagones. Cada 5 vagones nuevos sale un
+  aviso. El récord del navegador guarda el pico más alto.
 - El gusanito acelera solo. **← →** (o los botones ◀ ▶ en el celular) para girar, **↓ / espacio / Freno**
   para frenar. **P** o **Esc** para pausar. Con el celular acostado, el freno va a la derecha.
 - La **cámara gira con la cabeza**: la trompa siempre apunta hacia arriba, así ◀ ▶ siempre son izquierda
@@ -62,9 +69,9 @@ Todo está en la tabla `NIVELES` al inicio de `gusanito.js`, por cantidad de vag
 | 7 | $80 | 250 | 15 % | 5 | 8 |
 | 8 | $110 | 250 | 0 | 6 | 8 |
 
-Los vagones se cuentan con la plata juntada (lo que se paga, sin descontar devoluciones). También bajan
-con los vagones los umbrales de miedo y de caída, y el ritmo al que se divierten. El tope es de 8
-vagones (`C.vagonesMax`).
+Después del 8 no hay tabla: cada vagón nuevo cuesta $40 más (`precioVagon()`), y la velocidad, la ayuda y
+la cantidad de danzantes y perros se quedan en el nivel de 8. Los vagones se cuentan con la plata juntada
+(lo que se paga, sin descontar devoluciones). No hay tope: `C.vagonesMax` es infinito.
 
 **La ayuda al manejar** (`ayudar()`): si la trompa va a dar contra algo, se desvía hacia el lado libre y
 frena un poco; si no tocas ◀ ▶, se endereza con la calle y se centra (en los redondeles no, para que
@@ -82,6 +89,11 @@ HUD y las capas.
 - **Al tocar una pared** el gusanito se desliza por ella, pero el rumbo sigue siendo tuyo: la pared solo
   empuja y frena lo que va contra ella. Antes la pared también cambiaba el rumbo hacia su línea, y eso
   dejaba la trompa pegada sin poder girar para salir.
+- **La cola y su fatiga**: cada barra mide la sacudida que le llega (`v.g`, la misma que siente la gente).
+  Mientras pasa de `C.aguanta`, se cansa (`v.fatiga`); cuando llega a 1, `romperSiHaceFalta()` parte la
+  cola y `terminar('partio')` acaba la partida con el pico. `C.inercia` es el mando de lo inestable:
+  con 0,92 la cola se mueve bastante con pocos vagones y mucho más con muchos; con 0,95 ya se parte con
+  6 vagones en zigzag rápido, y con 0,90 casi no se parte.
 - **Golpes y confianza**: un golpe fuerte (`estrellar()`) quita una vida, suelta el último vagón y baja la
   confianza. Los golpes de frente cuentan; los roces no. `restarConfianza()` es el único lugar donde se
   decide que la fila se va: si llega a 0, se acaba la partida.

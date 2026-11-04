@@ -17,7 +17,12 @@
     agarre: 6,              // cuánto frenan las llantas el deslizamiento lateral (1/s)
     inercia: 0.92,          // cuánto conserva cada vagón su impulso: con 1 la cola se desboca, con 0.85 ya no se mece
     dobla: 1.0,             // ángulo máximo entre un vagón y el de adelante (rad)
-    vagonesMax: 8, asientos: 4,
+    vagonesMax: Infinity,   // sin tope: lo que limita el largo es que la cola se parte
+    asientos: 4,
+    aguanta: 1200,          // sacudida (la que siente la gente) que la barra aguanta sin cansarse
+    fatiga: 0.6,            // qué tan rápido se cansa cuando la sacudida pasa de lo que aguanta (por segundo, por exceso)
+    recupera: 0.25,         // qué tan rápido se recupera una barra que no está forzada
+
     // empujón de costado que siente el pasajero (px/s²); el miedo y las caídas van por nivel
     divDesde: 120,          // desde aquí ya es divertido
     divLleno: 650,          // desde aquí la diversión ya no sube más rápido
@@ -43,6 +48,8 @@
     { vagones: 8, ganado: 110, vMax: 250, asist: 0,    ritmo: 0.8,  miedo: 630, caida: 800,  danzantes: 6, perros: 8 },
   ];
   const nivelDe = (vagones) => NIVELES[clamp(vagones - 2, 0, NIVELES.length - 1)];
+  // plata juntada que hace falta para el vagón número n (la tabla llega hasta 8; después cada uno cuesta $40 más)
+  const precioVagon = (n) => (n <= 8 ? NIVELES[Math.max(0, n - 2)].ganado : 110 + (n - 8) * 40);
 
   const PALETAS = [
     { cuerpo: '#8BD43B', borde: '#E8458B', toldo: ['#F2B33D', '#E8458B', '#5FB4E6', '#8BD43B'] },
@@ -136,7 +143,7 @@
 
   function nuevoVagon(x, y, ang, k) {
     return {
-      x, y, vx: 0, vy: 0, ang, lat: 0, gir: 0, g: 0,
+      x, y, vx: 0, vy: 0, ang, lat: 0, gir: 0, g: 0, fatiga: 0,
       pal: PALETAS[(k + 1) % PALETAS.length],
       asientos: new Array(C.asientos).fill(null),
       golpe: 0,
@@ -148,7 +155,7 @@
     const x0 = ESTACION.x + 70, y0 = ESTACION.y + 16;
     S = {
       plata: 0, viajes: 0, felices: 0, asustados: 0, caidos: 0, choques: 0, seFueron: 0, devueltos: 0,
-      vidas: C.vidas, confianza: 100, viajeT: 0, motivo: null,
+      vidas: C.vidas, confianza: 100, viajeT: 0, motivo: null, pico: 2, rompiendo: 0,
       corriendo: false, fin: false,
       cab: { x: x0, y: y0, ang: 0, v: 0, giro: 0, golpe: 0, enfriar: 0 },
       vagones: [], caminantes: [], volando: [], textos: [], chispas: [], anuncios: [], seVan: [],
@@ -365,6 +372,30 @@
     if (S.vidas <= 0) terminar('golpes');
   }
 
+  // La cola se parte cuando una barra se cansa del todo. Mientras más largo el gusanito, más se dobla cada
+  // barra y más rápido se cansa: no hay tope, el largo se acaba cuando la cola ya no aguanta.
+  function romperSiHaceFalta() {
+    if (S.rompiendo > 0 || S.fin) return;
+    const i = S.vagones.findIndex((v) => v.fatiga >= 1 || !isFinite(v.x) || !isFinite(v.y));
+    if (i < 0) return;
+    const cola = S.vagones.slice(i);
+    S.vagones = S.vagones.slice(0, i);
+    for (const v of cola) {
+      if (!isFinite(v.x) || !isFinite(v.y)) continue;
+      polvo(v.x, v.y, 12);
+      for (const p of v.asientos) if (p) { S.asustados++; S.volando.push({ p, x: v.x, y: v.y, vx: azar(-160, 160), vy: azar(-160, 160), z: 0, vz: 280, t: 0, giro: azar(-8, 8) }); }
+    }
+    S.dif = nivelDe(S.vagones.length);
+    S.rompiendo = 1.4;
+    anunciar('¡La cola se partió!', '#FF8A7A', 3.5);
+    anunciar(`Llegó a ${S.pico} vagones`, '#fff', 3.5, true);
+    sonar('choque');
+  }
+  function colaAviso() {
+    if (S.avisos.cola || S.rompiendo > 0) return;
+    if (S.vagones.some((v) => v.fatiga > 0.6)) { S.avisos.cola = true; anunciar('¡La cola está a punto de partirse!', '#FFB3A8', 2.5, true); }
+  }
+
   function moverVagones(dt) {
     const k = S.cab;
     let ax = Math.cos(k.ang), ay = Math.sin(k.ang);
@@ -404,7 +435,11 @@
       v.gir = dang / dt;
       // lo que siente el pasajero: empujón de costado = rapidez × giro, más el deslizamiento
       const g = Math.abs(v.gir * lon) + Math.abs(lat) * C.agarre;
-      v.g += (Math.min(g, 1300) - v.g) * Math.min(1, dt * 4); // tope: un empujón de pared no lanza a nadie
+      v.g += (Math.min(g, 4000) - v.g) * Math.min(1, dt * 4); // tope solo para que los números no exploten
+      // la barra se cansa mientras la cola la sacude más de lo que aguanta, y se recupera cuando no:
+      // si se cansa del todo, la cola se parte
+      const exceso = v.g / C.aguanta - 1;
+      v.fatiga = Math.max(0, (v.fatiga || 0) + (exceso > 0 ? exceso * C.fatiga : -C.recupera) * dt);
       hx = v.x - fx * C.vagonL / 2; hy = v.y - fy * C.vagonL / 2;
       pa = v.ang;
     }
@@ -543,7 +578,10 @@
     }
     // 2 · con la plata juntada se engancha otro vagón
     let nuevos = 0;
-    while (S.vagones.length < C.vagonesMax && S.plata >= nivelDe(S.vagones.length + 1).ganado) { agregarVagon(); nuevos++; }
+    while (S.plata >= precioVagon(S.vagones.length + 1)) {
+      agregarVagon(); nuevos++;
+      if (S.vagones.length > S.pico) { S.pico = S.vagones.length; if (S.pico % 5 === 0) anunciar(`¡${S.pico} vagones!`, '#F2E14B', 3); }
+    }
     if (nuevos) {
       S.dif = nivelDe(S.vagones.length);
       ajustarCaminantes();
@@ -715,6 +753,8 @@
       const sub = 3, h = dt / sub;
       for (let s = 0; s < sub; s++) { moverCabeza(h); moverVagones(h); }
       pasajeros(dt); estacion(dt); caminantes(dt);
+      romperSiHaceFalta(); colaAviso();
+      if (S.rompiendo > 0 && (S.rompiendo -= dt) <= 0) terminar('partio');
       actualizarHud();
     }
     efectos(dt);
@@ -1003,6 +1043,9 @@
     ctx.strokeStyle = '#2A2A2E'; ctx.lineWidth = 5; ctx.lineCap = 'round';
     for (const v of S.vagones) {
       const fx = v.x + Math.cos(v.ang) * C.vagonL / 2, fy = v.y + Math.sin(v.ang) * C.vagonL / 2;
+      const f = v.fatiga || 0;
+      ctx.strokeStyle = f > 0.5 ? '#E8458B' : f > 0.2 ? '#F2B33D' : '#2A2A2E';
+      ctx.lineWidth = 5 + 3 * Math.min(1, f);
       ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(fx, fy); ctx.stroke();
       hx = v.x - Math.cos(v.ang) * C.vagonL / 2; hy = v.y - Math.sin(v.ang) * C.vagonL / 2;
     }
@@ -1182,8 +1225,7 @@
     h.vuelta.classList.toggle('poco', vt !== null && vt <= 12);
     h.vidas.textContent = '♥'.repeat(S.vidas) + '♡'.repeat(Math.max(0, C.vidas - S.vidas));
     h.fila.textContent = `Fila ${S.est.fila.length} · confianza ${Math.round(S.confianza)} %`;
-    const sig = S.vagones.length < C.vagonesMax ? nivelDe(S.vagones.length + 1).ganado : null;
-    h.vagon.textContent = sig === null ? 'Gusanito completo' : `Otro vagón al juntar ${plata(sig)}`;
+    h.vagon.textContent = `Otro vagón al juntar ${plata(precioVagon(S.vagones.length + 1))} · récord ${S.pico}`;
   }
 
   // ─── Capas ─────────────────────────────────────────────────────────
@@ -1205,16 +1247,17 @@
     if (S.fin) return;
     S.corriendo = false; S.fin = true; S.motivo = motivo; musica(false); sonar('fin');
     // el récord es el gusanito más largo: en memoria y, si se puede, también en el navegador
-    const largo = S.vagones.length;
+    const largo = S.pico;
     let guardado = 0;
     try { guardado = +localStorage.getItem('gusanito.largo') || 0; } catch { /* sin almacenamiento */ }
     mejorLargo = Math.max(mejorLargo, guardado, largo);
     try { localStorage.setItem('gusanito.largo', mejorLargo); } catch { /* sin almacenamiento */ }
     const vagones = (n) => n + (n === 1 ? ' vagón' : ' vagones');
-    $('#fin-kicker').textContent = motivo === 'golpes' ? 'Se acabaron las vidas' : 'Nadie quiere subirse';
+    $('#fin-kicker').textContent = motivo === 'golpes' ? 'Se acabaron las vidas' : motivo === 'partio' ? 'La cola se partió' : 'Nadie quiere subirse';
     $('#t-fin').textContent = vagones(largo);
     $('#fin-frase').textContent = (motivo === 'golpes'
       ? 'De tanto chocar el gusanito se deshizo. '
+      : motivo === 'partio' ? 'Creció tanto que la cola ya no aguantó. '
       : 'La fila perdió la confianza: esperaron mucho o no se divirtieron. ')
       + (largo >= 8 ? '¡Un gusanito de fiesta de verdad!' : largo >= 5 ? 'Buen largo: la fila te quiso.' : 'La próxima, más vagones: junta más plata.');
     $('#r-viajes').textContent = S.viajes; $('#r-felices').textContent = S.felices; $('#r-sefueron').textContent = S.seFueron;
