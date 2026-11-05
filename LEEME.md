@@ -21,6 +21,15 @@ en una.red, no aquí.
   diversión (`C.mareo`), el redondel no da bono, pierden el 100 % y **mientras están mareados nada los divierte**.
   Se les pasa si están 10 s sin dar otro giro completo (`C.mareoOlvida`). Entre más gente a
   bordo, más cuesta divertirlos: cada pasajero por encima de 4 resta un 8 % de velocidad, hasta un 60 % menos.
+- **Combo de zigzag**: cada cambio de lado con buen meneo, si llega antes de 1,8 s del anterior
+  (`C.comboVentana`), sube el combo («¡Combo ×3!», con un sonido que sube de tono). Cada nivel hace que se
+  diviertan un 20 % más rápido (`C.comboExtra`), hasta 6 niveles. Se corta con un golpe, al ir lento o si tardas
+  en cambiar de lado. La diversión base es lenta a propósito (`C.ritmoDiv` 0,05): con zigzag perfecto en una
+  recta abierta (sin paredes, 2 vagones, 0,6 s a cada lado), con combos llegó al 100 % en 13,7 s y sin combos
+  en 27,2 s.
+- **Puntos de fiesta ♪**: durante la vuelta hay 3 en la calle, cerca de la estación (`C.fiestas`). Pasar por uno
+  les sube 12 % de diversión a todos (`C.fiestaDiv`) y deja $0,10 de propina por pasajero; aparece otro en otra
+  parte. Una flechita rosada apunta al más cercano cuando no se ve en la pantalla.
 - **Para cobrar, el grupo tiene que llegar con 75 % de diversión o más.** Si no, **piden devuelto**, llegues
   a tiempo o no: no pagan y la fila se molesta.
 - **Se bajan al final de la vuelta** (en los últimos 12 s, `C.ventana`, o después si llegas tarde), **o antes
@@ -137,6 +146,11 @@ nuevas: las mediciones de la cola de más abajo son de antes.
 Después del 8 no hay tabla: cada vagón nuevo cuesta $40 más (`precioVagon()`), y la velocidad, la ayuda y
 la cantidad de danzantes y perros se quedan en el nivel de 8. El precio se **gasta**: no es un umbral que
 se cruza solo. No hay tope: `C.vagonesMax` es infinito.
+
+**Para que no se atasque**: si la trompa queda apretada contra una pared casi sin avanzar (0,35 s), el
+gusanito da solo una marcha atrás corta con el volante al revés y sale girando hacia el lado con más espacio
+(«¡Marcha atrás!», `ladoLibre()`). Eso funciona en todos los niveles. Además, la parte de la ayuda que esquiva
+mira más lejos, gira más fuerte y siempre ayuda al menos un 35 %, aunque ya no haya ayuda para centrarse.
 
 **La ayuda al manejar** (`ayudar()`): si la trompa va a dar contra algo, se desvía hacia el lado libre y
 frena un poco; si no tocas ◀ ▶, se endereza con la calle y se centra (en los redondeles no, para que

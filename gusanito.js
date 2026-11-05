@@ -36,14 +36,20 @@
     // empujón de costado que siente el pasajero (px/s²); el miedo y las caídas van por nivel
     divDesde: 120,          // desde aquí ya es divertido
     divLleno: 650,          // desde aquí la diversión ya no sube más rápido
-    ritmoDiv: 0.2,          // qué tan rápido se llena la diversión con meneo fuerte (por segundo)
+    ritmoDiv: 0.05,         // qué tan rápido se llena la diversión con meneo fuerte (por segundo): con zigzag perfecto
+                            // y combos, 13,7 s hasta el 100 %; sin combos, 27,2 s
     vidas: 3,               // golpes de frente (vereda, puestos, vallas, islas) que aguanta el gusanito
     minDiv: 0.75,           // diversión mínima del grupo al llegar: si no llega, piden devuelto
     ventana: 12,            // en los últimos segundos de la vuelta ya se pueden bajar (antes, solo al 100 %)
     tanque: 4,              // km que da un tanque lleno de gasolina
     gasta: 0.08,            // cada vagón de más (desde el tercero) gasta este tanto más; acelerando, × 1,5
     reserva: 60,            // sin gasolina, el gusanito se arrastra a esta velocidad (px/s) hasta la estación
-    deFrente: 0.8,          // qué tan de frente tiene que ser un golpe para quitar vida (1 = derecho contra la pared)
+    deFrente: 0.8,
+    // combo de zigzag: cada cambio de lado con buen meneo, antes de C.comboVentana s, suma; cada nivel de combo
+    // multiplica lo que se divierten (+C.comboExtra, hasta C.comboMax niveles)
+    comboVentana: 1.8, comboExtra: 0.2, comboMax: 6,
+    // puntos de fiesta en la calle: pasar por uno anima a todos (+C.fiestaDiv) y deja propina por pasajero
+    fiestas: 3, fiestaDiv: 0.12, fiestaPropina: 0.1,          // qué tan de frente tiene que ser un golpe para quitar vida (1 = derecho contra la pared)
     vuelta: 60,             // segundos de cada vuelta; siempre el mismo tiempo, tenga el largo que tenga
     filaMax: 30,            // cuánta gente cabe en la fila de la estación
     camGiro: 3.5,
@@ -477,14 +483,14 @@
       vidas: C.vidas, confianza: 100, viajeT: 0, motivo: null, pico: 2, rompiendo: 0,
       decidiendo: false, listos: false, comb: C.tanque, avisoComb: 0, ronda: null, vueltasRedondel: 0, total: 0, barras: 0, parlante: false, luces: false, noche: false,
       corriendo: false, fin: false,
-      cab: { x: x0, y: y0, ang: ESTACION.ang, v: 0, giro: 0, golpe: 0, enfriar: 0 },
+      cab: { x: x0, y: y0, ang: ESTACION.ang, v: 0, giro: 0, golpe: 0, enfriar: 0, trabado: 0, maniobra: 0, saliendo: 0, mLado: 1 },
       vagones: [], caminantes: [], volando: [], textos: [], chispas: [], anuncios: [], seVan: [],
       cam: { x: x0, y: y0, ang: ESTACION.ang }, parando: 0, avisoT: 0, sustoT: 0, ladridoT: 0,
       dif: nivelDe(2),
       // vuelta: segundos que le quedan a la vuelta con los pasajeros (null = no hay vuelta en curso)
       vuelta: null, avisos: {}, primera: true,
       est: { carga: 0, t: 0, llegaT: 0, fila: [] },
-      turbo: { activo: false, antes: false, humo: 0 }, giros: 0, giroAcc: 0, giroT: 0,
+      turbo: { activo: false, antes: false, humo: 0 }, fiestas: [], combo: 0, comboT: 0, comboLado: 0, comboGiro: 0, mejorCombo: 0, fiestasTomadas: 0, giros: 0, giroAcc: 0, giroT: 0,
     };
     for (let k = 0; k < S.dif.vagones; k++) agregarVagon();
     for (let k = 0; k < 12; k++) S.est.fila.push(nuevoPasajero());
@@ -595,18 +601,19 @@
   //  · si hay algo delante y no giras, o giras hacia el lado libre, se desvía un poco y frena un poco
   //  · si no giras y vas en una calle, se endereza con la calle y se centra
   function ayudar(k, meta, dt) {
-    const A = S.dif.asist;
-    if (A <= 0 || C.fantasma || k.v < 30) return;
-    const mira = 40 + k.v * 0.45;
-    const libre = (da) => { const a = k.ang + da; return !solido(k.x + Math.cos(a) * mira, k.y + Math.sin(a) * mira, C.cabezaA / 2); };
+    const A = S.dif.asist, esquiva = Math.max(A, 0.35); // a no chocar ayuda siempre un poco, aun sin ayuda
+    if (C.fantasma || k.v < 30) return;
+    const mira = 60 + k.v * 0.6;
+    const libre = (da, m = mira) => { const a = k.ang + da; return !solido(k.x + Math.cos(a) * m, k.y + Math.sin(a) * m, C.cabezaA / 2); };
     if (!libre(0)) {
-      const der = libre(0.5) || libre(1.1), izq = libre(-0.5) || libre(-1.1);
-      const lado = der && izq ? (libre(0.5) ? 1 : -1) : der ? 1 : izq ? -1 : 0;
+      const der = libre(0.5) || libre(1.1) || libre(1.6, mira * 0.7), izq = libre(-0.5) || libre(-1.1) || libre(-1.6, mira * 0.7);
+      const lado = der && izq ? (libre(0.5) ? 1 : libre(-0.5) ? -1 : ladoLibre(k)) : der ? 1 : izq ? -1 : 0;
       if (lado === 0 || (meta !== 0 && lado !== meta)) return; // si giras hacia la pared, te dejo
-      k.ang += lado * C.giro * 0.9 * A * dt;
-      k.v = Math.max(0, k.v - C.freno * 0.25 * A * dt);
+      k.ang += lado * C.giro * 1.5 * esquiva * dt;
+      k.v = Math.max(60, k.v - C.freno * 0.35 * esquiva * dt);
       return;
     }
+    if (A <= 0) return;
     if (meta !== 0 || enRedondel(k.x, k.y, 70)) return;
     const q = calleCerca(k.x, k.y, k.ang); // la calle por la que vas (si vas más o menos derecho por ella)
     if (!q) return;
@@ -634,9 +641,22 @@
     }
   }
 
+  // ¿para qué lado hay más espacio? (cuenta los rayos libres a cada lado de la trompa)
+  function ladoLibre(k) {
+    let d = 0, i = 0;
+    for (const a of [0.6, 1.2, 1.9]) for (const m of [90, 160]) {
+      if (!solido(k.x + Math.cos(k.ang + a) * m, k.y + Math.sin(k.ang + a) * m, C.cabezaA / 2)) d++;
+      if (!solido(k.x + Math.cos(k.ang - a) * m, k.y + Math.sin(k.ang - a) * m, C.cabezaA / 2)) i++;
+    }
+    return d >= i ? 1 : -1;
+  }
+
   function moverCabeza(dt) {
     const k = S.cab;
-    const meta = (entrada.izq ? -1 : 0) + (entrada.der ? 1 : 0);
+    let meta = (entrada.izq ? -1 : 0) + (entrada.der ? 1 : 0);
+    // destrabar: si quedó apretado contra una pared, da marcha atrás con el volante al revés y sale girando
+    if (k.maniobra > 0) { k.maniobra -= dt; meta = -k.mLado; if (k.maniobra <= 0) k.saliendo = 0.6; }
+    else if (k.saliendo > 0) { k.saliendo -= dt; if (!meta) meta = k.mLado; }
     k.giro += (meta - k.giro) * Math.min(1, C.giroSuave * dt);
     const turbo = S.turbo.activo;
     let vMax = S.dif.vMax * (turbo ? C.turbo : 1);
@@ -648,7 +668,8 @@
     // en la estación se queda quieto mientras baja y sube la gente (aunque ya no frenes)
     if (S.comb <= 0) vMax = Math.min(vMax, C.reserva); // sin gasolina se arrastra
     const subiendo = S.parando && S.est.carga > 0 && S.est.carga < 0.6;
-    if (entrada.freno && !subiendo && k.v <= 2) k.v = Math.max(-C.reversa, k.v - C.acel * 0.6 * dt); // parado y frenando: reversa
+    if (k.maniobra > 0) k.v = Math.max(-C.reversa * 1.8, k.v - C.acel * 1.5 * dt);
+    else if (entrada.freno && !subiendo && k.v <= 2) k.v = Math.max(-C.reversa, k.v - C.acel * 0.6 * dt); // parado y frenando: reversa
     else if (entrada.freno || subiendo) k.v = Math.max(0, k.v - C.freno * dt);
     else if (k.v < vMax) k.v = Math.min(vMax, k.v + C.acel * (turbo ? C.turboAcel : 1) * dt * (k.v < 0 ? 3 : 1));
     else k.v = Math.max(vMax, k.v - C.freno * 0.3 * dt);
@@ -682,6 +703,13 @@
           texto(frente.x, frente.y - 20, '¡Uy, rozamos!', '#fff', 0.9);
         }
       }
+    }
+    // ¿atascado? apretado de trompa contra algo, casi sin avanzar y sin que tú estés retrocediendo
+    if (golpe && k.v >= 0 && k.v < 60 && !entrada.freno && !(k.maniobra > 0) && !(S.parando && S.est.carga > 0) && !C.fantasma) k.trabado = (k.trabado || 0) + dt;
+    else k.trabado = Math.max(0, (k.trabado || 0) - dt * 2);
+    if (k.trabado > 0.35) {
+      k.trabado = 0; k.mLado = ladoLibre(k); k.maniobra = 0.75;
+      texto(k.x, k.y - 40, '¡Marcha atrás!', '#fff', 1);
     }
     k.enfriar -= dt;
     k.golpe = Math.max(0, k.golpe - dt * 3);
@@ -822,7 +850,7 @@
         if (S.listos && !tarde) { p.div = 1; p.miedo = Math.max(0, p.miedo - 0.04 * dt); continue; } // ya ganados
         if (e > C.divDesde) {
           const tramo = Math.min(e, C.divLleno, d.miedo) - C.divDesde;
-          p.div += tramo / (C.divLleno - C.divDesde) * C.ritmoDiv * d.ritmo * extra * dil * (S.parlante ? 1.25 : 1) * dt;
+          p.div += tramo / (C.divLleno - C.divDesde) * C.ritmoDiv * d.ritmo * extra * extraCombo() * dil * (S.parlante ? 1.25 : 1) * dt;
         } else p.div -= (lento ? 0.04 : 0.025) * dt; // sin meneo se aburren (y parados, más)
         if (tarde) p.div -= 0.05 * dt;          // ya quieren bajarse
         if (e > d.miedo) p.miedo += (e - d.miedo) / 250 * dt;
@@ -1026,7 +1054,7 @@
   }
   function salir() {
     if (!S.decidiendo || aBordo() === 0 || S.comb < 0.05) return;
-    S.decidiendo = false; S.vuelta = duracionVuelta(); S.viajeT = 0; S.est.carga = -99; S.listos = false; S.giros = 0; S.giroAcc = 0; S.giroT = 0;
+    S.decidiendo = false; S.vuelta = duracionVuelta(); S.viajeT = 0; S.est.carga = -99; S.listos = false; S.giros = 0; S.giroAcc = 0; S.giroT = 0; S.fiestas.length = 0; S.combo = 0;
     cerrarCalles();
     S.avisoComb = S.comb < 0.6 ? 1 : 0;
     if (S.comb < 1) anunciar(`Solo quedan ${kmTxt(S.comb)} de gasolina: no te alejes`, '#FFB3A8', 3.5, true);
@@ -1109,6 +1137,62 @@
       S.plata += bono; S.total += bono;
       texto(k.x, k.y - 50, `¡Vuelta al redondel! +${plata(bono)}`, '#F2E14B', 1.8);
       sonar('plata');
+    }
+  }
+
+  // Combo de zigzag: un cambio de lado cuenta si el lado anterior giró de verdad (C 0,3 rad) yendo rápido y con
+  // meneo en los vagones. Seguidos (antes de C.comboVentana s) suben el combo; se corta con un golpe, al parar o
+  // si pasa mucho sin cambiar de lado.
+  function combo(dt, giro) {
+    const k = S.cab;
+    S.comboT = (S.comboT || 0) + dt;
+    const lado = Math.sign(giro);
+    if (Math.abs(giro) > 0.0005 && k.v > 120) {
+      if (lado === S.comboLado || !S.comboLado) { S.comboGiro = (S.comboGiro || 0) + Math.abs(giro); S.comboLado = lado; }
+      else {
+        const meneo = S.vagones.length && S.vagones[0].g > C.divDesde * 2;
+        if (S.comboGiro > 0.3 && meneo && S.vuelta !== null && aBordo() > 0) {
+          S.combo = S.comboT < C.comboVentana ? (S.combo || 0) + 1 : 1;
+          S.comboT = 0;
+          if (S.combo >= 2) {
+            const n = Math.min(S.combo, C.comboMax + 1);
+            texto(k.x, k.y - 60, `¡Combo ×${S.combo}!`, ['#F2E14B', '#F6B940', '#F38B3B', '#E8458B', '#B46DE0', '#5FB4E6', '#8BD43B'][(n - 2) % 7], 0.9);
+            sonar('combo', n);
+          }
+          S.mejorCombo = Math.max(S.mejorCombo || 0, S.combo);
+        }
+        S.comboLado = lado; S.comboGiro = Math.abs(giro);
+      }
+    }
+    if (S.comboT > C.comboVentana || k.v < 60 || k.golpe > 0.5) { S.combo = 0; S.comboGiro = 0; }
+  }
+  // cuánto multiplica el combo lo que se divierten
+  const extraCombo = () => 1 + C.comboExtra * clamp((S.combo || 0) - 1, 0, C.comboMax);
+
+  // Puntos de fiesta: en media cuadra de alguna calle cerca de la estación. Pasar por uno anima a todos.
+  function nuevaFiesta() {
+    for (let intento = 0; intento < 40; intento++) {
+      const t = tramoAzar(), m = enTramo(t, t.L * azar(0.3, 0.7));
+      const lejos = Math.hypot(m.x - S.cab.x, m.y - S.cab.y), base = Math.hypot(m.x - ESTACION.x, m.y - ESTACION.y);
+      if (t.salida || t === tramoEstacion || lejos < 900 || base > 2600 || S.fiestas.some((f) => Math.hypot(f.x - m.x, f.y - m.y) < 900)) continue;
+      return { x: m.x, y: m.y, t: Math.random() * 9 };
+    }
+    return null;
+  }
+  function fiestas(dt) {
+    if (S.vuelta === null || aBordo() === 0) { S.fiestas.length = 0; return; }
+    while (S.fiestas.length < C.fiestas) { const f = nuevaFiesta(); if (!f) break; S.fiestas.push(f); }
+    const k = S.cab;
+    for (let i = S.fiestas.length - 1; i >= 0; i--) {
+      const f = S.fiestas[i];
+      f.t += dt;
+      if (Math.hypot(f.x - k.x, f.y - k.y) > 95) continue;
+      S.fiestas.splice(i, 1);
+      const n = aBordo(), propina = Math.round(C.fiestaPropina * n * (S.noche ? 1.5 : 1) * 100) / 100;
+      for (const v of S.vagones) for (const p of v.asientos) if (p) p.div = Math.min(1, p.div + C.fiestaDiv);
+      S.plata += propina; S.total += propina; S.fiestasTomadas = (S.fiestasTomadas || 0) + 1;
+      texto(f.x, f.y - 40, `¡Fiesta! +${Math.round(C.fiestaDiv * 100)} % · +${plata(propina)}`, '#F2E14B', 1.6);
+      confeti(f.x, f.y, 40); sonar('feliz');
     }
   }
 
@@ -1302,6 +1386,8 @@
       const ang0 = S.cab.ang;
       for (let s = 0; s < sub; s++) { moverCabeza(h); moverVagones(h); }
       mareo(dt, vuelta(S.cab.ang - ang0));
+      combo(dt, vuelta(S.cab.ang - ang0));
+      fiestas(dt);
       gastar(dt);
       pasajeros(dt); estacion(dt); caminantes(dt);
       romperSiHaceFalta(); colaAviso(); contarRedondel();
@@ -1416,6 +1502,8 @@
     for (const o of altos) sombraVol(o);
     altos.sort((a, b) => (b.cx * AX + b.cy * AY) - (a.cx * AX + a.cy * AY));
     for (const o of altos) if (o.arbol) arbol3d(o); else volumen(o);
+    // puntos de fiesta
+    for (const f of S.fiestas) if (ve(f.x - 120, f.y - 120, 240, 240)) puntoFiesta(f);
     // caminantes
     for (const c of S.caminantes) if (c.px !== undefined && ve(c.px - 40, c.py - 40, 80, 80)) caminante(c);
     // caídos en el suelo
@@ -1484,7 +1572,7 @@
     medidorDiversion();
     zonasTactiles();
     // flechas hacia la estación fuera de pantalla
-    if (S.corriendo) flechas();
+    if (S.corriendo) { flechaFiesta(); flechas(); }
   }
 
   let AX = 0, AY = 0; // cuánto se corre hacia arriba de la pantalla cada px de altura (lo pone dibujar)
@@ -1989,6 +2077,37 @@
 
   // Flecha hacia la estación: gira alrededor del gusanito, por fuera del medidor (así no tapa el HUD ni el
   // freno ni la cola). Parpadea cuando ya hay que volver.
+  // Punto de fiesta: un círculo de confeti que late, con una nota musical que salta y banderines alrededor
+  function puntoFiesta(f) {
+    const late = quieto ? 1 : 1 + Math.sin(f.t * 5) * 0.08, r = 70 * late;
+    ctx.fillStyle = 'rgba(242,225,75,.28)'; ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#F2E14B'; ctx.lineWidth = 5; ctx.setLineDash([14, 10]);
+    ctx.beginPath(); ctx.arc(f.x, f.y, r, quieto ? 0 : f.t, (quieto ? 0 : f.t) + 7); ctx.stroke(); ctx.setLineDash([]);
+    const cols = ['#E8458B', '#5FB4E6', '#8BD43B', '#F6B940', '#B46DE0'];
+    for (let n = 0; n < 10; n++) {
+      const a = n / 10 * Math.PI * 2 + (quieto ? 0 : f.t * 0.6);
+      ctx.fillStyle = cols[n % cols.length]; ctx.beginPath(); ctx.arc(f.x + Math.cos(a) * r * 0.75, f.y + Math.sin(a) * r * 0.75, 6, 0, 7); ctx.fill();
+    }
+    const salto = quieto ? 0 : Math.abs(Math.sin(f.t * 4)) * 14;
+    ctx.save(); ctx.translate(f.x + AX * (30 + salto), f.y + AY * (30 + salto)); ctx.rotate(-Math.PI / 2 - S.cam.ang);
+    ctx.fillStyle = '#E8458B'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 4;
+    ctx.font = '700 46px Fredoka, Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.strokeText('♪', 0, 0); ctx.fillText('♪', 0, 0);
+    ctx.restore();
+  }
+  // flechita rosada hacia el punto de fiesta más cercano (si no se ve en la pantalla)
+  function flechaFiesta() {
+    if (!S.fiestas.length || S.vuelta === null) return;
+    const k = S.cab;
+    const f = S.fiestas.reduce((a, b) => (Math.hypot(a.x - k.x, a.y - k.y) < Math.hypot(b.x - k.x, b.y - k.y) ? a : b));
+    const q = aPantalla(f.x, f.y);
+    if (q.x > 30 && q.x < W - 30 && q.y > 90 && q.y < H - 90) return;
+    const cx = W / 2, cy = H * piv, a = Math.atan2(q.y - cy, q.x - cx), r = Math.min(110, Math.min(W, H) * 0.26);
+    ctx.save(); ctx.translate(cx + Math.cos(a) * r, cy + Math.sin(a) * r); ctx.rotate(a);
+    ctx.fillStyle = '#E8458B'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-6, -9); ctx.lineTo(-2, 0); ctx.lineTo(-6, 9); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
   function flechas() {
     if (Math.hypot(ESTACION.x - S.cab.x, ESTACION.y - S.cab.y) < 420) return; // ya está aquí cerca
     const q = aPantalla(ESTACION.x, ESTACION.y), cx = W / 2, cy = H * piv;
@@ -2186,6 +2305,7 @@
       }
     }
     if (cual === 'tarde') [7, 3, 0].forEach((n, i) => nota(semi(n), t + i * 0.16, 0.22, 'square', 0.07));
+    if (cual === 'combo') { const n = arguments[1] || 2; nota(semi(10 + n * 2), t, 0.1, 'square', 0.07); nota(semi(17 + n * 2), t + 0.06, 0.16, 'square', 0.07); }
     if (cual === 'turbo') {
       const o = ac.createOscillator(), g = ac.createGain();
       o.type = 'sawtooth'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(700, t + 0.35);
