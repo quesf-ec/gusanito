@@ -5,12 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>El gusanito · Fiestas del pueblo</title>
 <meta name="description" content="Maneja el gusanito de las fiestas: recoge a la gente en las paradas, haz zigzag para que los vagones bailen y la cola dé latigazos, y llévalos felices sin que nadie salga volando.">
-<meta name="theme-color" content="#2A1B3D">
+<meta name="theme-color" content="#8CC85E">
 <link rel="canonical" href="https://quesf-ec.github.io/gusanito/">
 <link rel="icon" href="img/icono-gusanito.svg" type="image/svg+xml">
 <link rel="preload" href="https://franciscombp.github.io/ds/fonts/montserrat.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="https://franciscombp.github.io/ds/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="https://franciscombp.github.io/ds/mal/mal.css?v=1.0.22">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap">
 <style>
 /* Solo el lienzo, los controles táctiles y las capas. Lo demás
    —.hud-juego, .marcador, .boton-juego, .vidrio, .medidor— es del sistema. */
@@ -105,6 +108,56 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 .vamonos small{font:700 .74rem/1.2 var(--mal-texto,sans-serif);opacity:.9}
 .vamonos:disabled{background:rgba(255,255,255,.18);box-shadow:none;cursor:default}
 .btn-block{width:100%}
+
+/* ─── Estética de juguete: paneles crema con borde dorado, botones gorditos con sombra abajo, letra redondita ─── */
+:root{--crema:#FFF6E3;--crema2:#FBEBCB;--dorado:#E8CF9C;--cafe:#5A3B22;--cafe2:#9A7650;--sombra:rgba(122,82,40,.38);
+  --naranja:#F36B3B;--naranja2:#B5441F;--verde:#5CC15A;--verde2:#2F7D3A;--redonda:Fredoka,var(--mal-texto,sans-serif)}
+body{background:#8CC85E}
+.hud-juego,.capa{font-family:var(--redonda);color:var(--cafe)}
+.barra{background:var(--crema);border:3px solid var(--dorado);border-radius:999px;padding:5px 8px;box-shadow:0 5px 0 var(--sombra);max-width:640px}
+.barra__botones .btn--icono{background:var(--crema2);border:2px solid var(--dorado);color:var(--cafe);border-radius:50%;box-shadow:0 3px 0 var(--sombra)}
+.objetivo{background:var(--crema2);color:var(--cafe);font-weight:600;font-family:var(--redonda)}
+.objetivo.bien{background:#7CC456;color:#fff}
+.objetivo.listo{background:#F6B940;color:var(--cafe)}
+.objetivo.mal{background:#EF6A55;color:#fff}
+.reloj{background:rgba(122,82,40,.18)}
+.reloj i{background:var(--verde)}
+.reloj i.poco{background:#EF6A55}
+.barra__plata{background:var(--crema2);color:var(--cafe);font-weight:700;font-family:var(--redonda)}
+.ficha-dato{background:var(--crema);border:2px solid var(--dorado);color:var(--cafe);box-shadow:0 3px 0 var(--sombra);font-weight:600}
+.ficha-dato b.mal{color:#D6382B}
+.aviso,.aviso--chico{font-family:var(--redonda);font-weight:700;background:rgba(74,46,24,.85);border-radius:14px;text-shadow:0 1px 0 rgba(0,0,0,.5)}
+.mando{backdrop-filter:none;font-family:var(--redonda)!important;font-weight:700!important;transition:transform .05s}
+.mando--freno{background:#EF5B45;border:3px solid #fff;box-shadow:0 5px 0 #A93522;color:#fff}
+.mando--turbo{background:var(--verde);border:3px solid #fff;box-shadow:0 5px 0 var(--verde2);color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.25)}
+.mando.activo{transform:translateY(4px)}
+.mando--freno.activo{background:#F6B940;color:var(--cafe);box-shadow:0 1px 0 #A97A1F}
+.mando--turbo.activo{background:#F2E14B;border-color:#fff;color:var(--cafe);box-shadow:0 1px 0 #A9951F;text-shadow:none}
+.teclas{color:var(--cafe);opacity:1;background:var(--crema);border:2px solid var(--dorado);border-radius:999px;padding:2px 12px;text-shadow:none;font-weight:600}
+.capa{background:rgba(90,60,30,.35)}
+.capa .capa__panel{background:var(--crema)!important;border:4px solid var(--dorado);border-radius:28px;box-shadow:0 8px 0 var(--sombra);color:var(--cafe);
+  backdrop-filter:none;-webkit-backdrop-filter:none}
+.capa__panel h1,.capa__panel h2{font-family:var(--redonda);font-weight:700;color:#E2573E;letter-spacing:0}
+.capa__panel .kicker{color:#C0883C;font-family:var(--redonda);font-weight:700}
+.capa__panel .caption{color:var(--cafe2)}
+.pasos b.n{background:var(--verde);box-shadow:0 3px 0 var(--verde2)}
+.capa__panel .btn{font-family:var(--redonda);font-weight:700;border-radius:18px;background:var(--crema2);color:var(--cafe);border:2px solid var(--dorado);box-shadow:0 4px 0 var(--sombra)}
+.capa__panel .btn--rojo{background:var(--naranja);color:#fff;border:0;box-shadow:0 6px 0 var(--naranja2);font-size:1.2rem}
+.resumen dt{color:var(--cafe2)}
+.capa--hoja{background:linear-gradient(to top,rgba(90,60,30,.35),rgba(90,60,30,0) 60%)}
+.hoja{background:var(--crema);color:var(--cafe);border:4px solid var(--dorado);border-bottom:0;box-shadow:0 -6px 0 rgba(122,82,40,.18)}
+.hoja__titulo{font-weight:700;color:#E2573E}
+.hoja__plata small{color:var(--cafe2);opacity:1}
+.oferta{background:linear-gradient(#CFEBF7 0 30px,#fff 30px);border:3px solid var(--dorado);color:var(--cafe);box-shadow:0 4px 0 var(--sombra);border-radius:18px}
+.oferta__nota{opacity:1;color:var(--cafe2)}
+.oferta__precio{background:var(--crema2);color:var(--cafe);border:2px solid var(--dorado)}
+.oferta:disabled .oferta__precio{background:#EEE6D6;color:var(--cafe2)}
+.oferta--hecho .oferta__precio{background:#7CC456;color:#fff;border-color:#5FA23E}
+.oferta--urge{border-color:#EF6A55;background:linear-gradient(#FFD2C8 0 30px,#FFF3F0 30px)}
+.oferta--activa{border-color:#F6B940}
+.vamonos{background:var(--naranja);box-shadow:0 6px 0 var(--naranja2);font-family:var(--redonda);font-weight:700;border-radius:20px}
+.vamonos small{font-family:var(--redonda);font-weight:600}
+.vamonos:disabled{background:#E6DCCB;color:var(--cafe2);box-shadow:none}
 </style>
 <script type="application/ld+json">
 {
@@ -221,6 +274,6 @@ body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;
 
 <script src="https://franciscombp.github.io/ds/mal/mal.js?v=1.0.22" defer></script>
 <script src="mapas/pujili.js?v=1"></script>
-<script src="gusanito.js?v=18"></script>
+<script src="gusanito.js?v=20"></script>
 </body>
 </html>

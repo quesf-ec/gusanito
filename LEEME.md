@@ -106,8 +106,8 @@ residencial de 7 m queda en 182 px y una secundaria de 9 m, en 234.
   estación, **uno por barrio** (a 1900 px como mínimo entre ellos, `C.separaRedondel`). Salen 7.
 - **El borde**: donde una calle sale del radio de juego hay una valla (30 en total). Del otro lado la calle sigue
   dibujada hasta 560 m, con casas y árboles, para que el pueblo parezca seguir.
-- **Las casas**: las que están en OpenStreetMap (346, con la Matriz y la Plaza de Toros) y, donde no hay,
-  casitas de teja a lo largo de cada calle (unas 1200), con árboles en los patios del medio de las cuadras.
+- **Las casas**: de OpenStreetMap, solo las iglesias y los edificios grandes con nombre (la Matriz, la Plaza de
+  Toros); las demás son casitas de teja que pone el juego a lo largo de cada calle, con árboles en los patios.
 
 Para cambiar de pueblo o de radio: `tools/mapa.py` (ver abajo).
 
@@ -153,6 +153,23 @@ Juegos con mecánicas parecidas que sirvieron de referencia. Lo que tomamos y lo
   exacta de la paciencia.
 - **Crazy Taxi** (pagar según el tiempo y los trayectos): no confirmé en las fuentes que la propina baje con
   el tiempo, así que no lo usamos. Referencia general: [Crazy Taxi en Wikipedia](https://en.wikipedia.org/wiki/Crazy_Taxi).
+
+## La estética
+
+Un pueblo de juguete: colores pastel, todo redondito y con volumen. Las casas, las iglesias y los árboles
+tienen altura (`volumen()`, `arbol3d()`): la vista es desde arriba pero un poco inclinada (`C.inclina`), así que
+lo alto se corre hacia arriba de la pantalla, se ven las paredes que miran a la cámara, con sus ventanas, y el
+techo de teja a dos aguas encima. Se dibujan de lo más lejano a lo más cercano, y todas las sombras caen para
+el mismo lado. El gusanito también tiene volumen: las llantas abajo y la carrocería y el toldo más arriba.
+Las calles tienen vereda clara, bordillo, línea blanca y pasos de cebra en los cruces, y el parque, caminos de
+arena con borde de ladrillo y el kiosco con su techo en punta.
+
+El HUD y los menús van en paneles crema con borde dorado, botones gorditos con sombra abajo (se hunden al
+apretarlos) y la letra redondita Fredoka (Google Fonts).
+
+De OpenStreetMap quedan solo las iglesias y los edificios grandes con nombre (como la Plaza de Toros),
+achicados hasta que no toquen las calles, que en el juego son más anchas que las reales. Las casas comunes
+las pone el juego a lo largo de cada calle.
 
 ## Cómo está hecho
 

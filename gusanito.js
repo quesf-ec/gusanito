@@ -43,7 +43,8 @@
     combustible: 4,         // vueltas que da un tanque lleno
     vuelta: 60,             // segundos de cada vuelta; siempre el mismo tiempo, tenga el largo que tenga
     filaMax: 30,            // cuánta gente cabe en la fila de la estación
-    camGiro: 3.5,           // qué tan rápido gira la cámara para seguir a la cabeza (1/s)
+    camGiro: 3.5,
+    inclina: 0.75,          // cuánto se inclina la vista: lo alto se corre hacia arriba de la pantalla este tanto por px           // qué tan rápido gira la cámara para seguir a la cabeza (1/s)
     // acelerador: sin pisarlo el gusanito va a su velocidad normal; pisándolo, la máxima sube (× C.turbo) y
     // acelera más fuerte (× C.turboAcel). Sin límite: el riesgo es lo que cuesta
     turbo: 1.3, turboAcel: 1.8,
@@ -302,10 +303,25 @@
   let cierres = []; // calles cerradas de esta vuelta (cambian cada vez que sales)
 
   // Casas: las de OpenStreetMap y, donde no hay, casitas de teja a lo largo de cada calle (también las de afuera)
-  const TEJAS = ['#B5543A', '#C96A43', '#A9472F', '#D07A4E'];
+  const TEJAS = ['#D9694A', '#E07B52', '#C85A3E', '#EA8A5C'];
+  const elige2 = (arr) => arr[(rnd() * arr.length) | 0]; // como elige(), pero con la semilla: el pueblo sale siempre igual
+  const PAREDES = ['#FFF6E6', '#FBE3D2', '#F6EBC8', '#E4F0E2', '#E6EEF8', '#F8DCE4', '#FFF0D9'];
+  const area = (p) => Math.abs(p.reduce((a, q, i) => { const r = p[(i + 1) % p.length]; return a + q.x * r.y - r.x * q.y; }, 0)) / 2;
+  // de OpenStreetMap quedan las iglesias y los edificios grandes con nombre (la Plaza de Toros, los mercados);
+  // las casas comunes las pone el juego, alineadas con las calles
   const edificios = MAPA.edificios.map((e) => {
-    const p = e.p.map(aPx);
-    return { p, iglesia: e.tipo === 'iglesia', n: e.n, teja: TEJAS[(rnd() * 4) | 0], caja: caja(p, 4), ...centro(p) };
+    const p = e.p.map(aPx), iglesia = e.tipo === 'iglesia';
+    return { p, iglesia, n: e.n, techo: iglesia ? '#EDE3D3' : TEJAS[(rnd() * 4) | 0], pared: iglesia ? '#FFFBF3' : elige2(PAREDES),
+      alto: iglesia ? 110 : 64, ventanas: true, caja: caja(p, 4), ...centro(p), grande: area(p) };
+  }).filter((e) => e.iglesia || (e.n && e.grande > 120000)).filter((e) => {
+    // las calles del juego son más anchas que las de verdad: se achica hacia su centro hasta que no toque ninguna
+    const orig = e.p.map((q) => ({ ...q }));
+    for (let f = 1; f >= 0.45; f -= 0.05) {
+      e.p = orig.map((q) => ({ x: e.x + (q.x - e.x) * f, y: e.y + (q.y - e.y) * f }));
+      const puntos = e.p.flatMap((q, i) => { const r = e.p[(i + 1) % e.p.length]; return [q, { x: (q.x + r.x) / 2, y: (q.y + r.y) / 2 }]; });
+      if (!puntos.some((q) => enCalle(q.x, q.y, 20))) { e.caja = caja(e.p, 4); e.grande = area(e.p); return true; }
+    }
+    return false;
   });
   const verdes = MAPA.verdes.map((v) => ({ p: v.p.map(aPx), campo: v.t === 'campo', caja: caja(v.p.map(aPx), 4) }));
   const OCUPA = 30, ocupado = new Set();
@@ -323,7 +339,8 @@
         const ux = (b.x - a.x) / largo, uy = (b.y - a.y) / largo, nx = -uy * lado, ny = ux * lado;
         for (let s = rnd() * 30; s < largo - 40;) {
           const w = 70 + rnd() * 70, h = 80 + rnd() * 60, off = l.hw + 18 + h / 2;
-          const c = { x: a.x + ux * (s + w / 2) + nx * off, y: a.y + uy * (s + w / 2) + ny * off, ang: Math.atan2(uy, ux), w, h, teja: TEJAS[(rnd() * 4) | 0], horiz: rnd() < 0.5 };
+          const c = { x: a.x + ux * (s + w / 2) + nx * off, y: a.y + uy * (s + w / 2) + ny * off, ang: Math.atan2(uy, ux), w, h, ux, uy, nx, ny,
+            techo: TEJAS[(rnd() * 4) | 0], pared: elige2(PAREDES), alto: rnd() < 0.3 ? 78 : 50, ventanas: true };
           let cabe = true;
           for (let i = -2; i <= 2 && cabe; i++) {
             for (let j = -2; j <= 2 && cabe; j++) {
@@ -349,6 +366,7 @@
     arboles.push({ x, y, r: 20 + rnd() * 12 });
     ocupado.add(llaveO(x, y));
   }
+  // los árboles del parque y de los otros verdes también van con altura (más abajo se juntan con estos)
   parque.arboles = [];
   for (let k = 0; k < parque.p.length; k++) {
     const a = parque.p[k], b = parque.p[(k + 1) % parque.p.length], l = Math.hypot(b.x - a.x, b.y - a.y);
@@ -365,6 +383,41 @@
       if (enPoligono(x, y, v.p) && !enCalle(x, y, 30)) v.arboles.push({ x, y, r: 22 + rnd() * 12 });
     }
   }
+
+  // ─── Volumen: las casas y los árboles tienen altura ─
+  // La vista es desde arriba y un poco inclinada: lo alto se corre hacia arriba de la pantalla (AX, AY, que
+  // cambian con la cámara). Las sombras caen siempre para el mismo lado del mundo (SOMBRA) y la luz viene del otro.
+  const LUZ = { x: -0.6, y: -0.8 }, SOMBRA = { x: 0.6, y: 0.8 };
+  function prisma(o) { // los lados del polígono, con su normal hacia afuera
+    const c = centro(o.p);
+    o.cx = c.x; o.cy = c.y; o.lados = [];
+    for (let i = 0; i < o.p.length; i++) {
+      const a = o.p[i], b = o.p[(i + 1) % o.p.length], l = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      let nx = (b.y - a.y) / l, ny = -(b.x - a.x) / l;
+      if (nx * ((a.x + b.x) / 2 - c.x) + ny * ((a.y + b.y) / 2 - c.y) < 0) { nx = -nx; ny = -ny; }
+      o.lados.push({ a, b, nx, ny, l, oscuro: 0.32 * (1 - (nx * LUZ.x + ny * LUZ.y)) / 2 });
+    }
+    o.r = Math.max(...o.p.map((q) => Math.hypot(q.x - c.x, q.y - c.y)));
+  }
+  for (const c of casas) {
+    const P = (i, j) => ({ x: c.x + c.ux * c.w / 2 * i + c.nx * c.h / 2 * j, y: c.y + c.uy * c.w / 2 * i + c.ny * c.h / 2 * j });
+    c.p = [P(-1, -1), P(1, -1), P(1, 1), P(-1, 1)];
+    prisma(c);
+    // techo a dos aguas: la cumbrera va por lo largo; la mitad que no mira a la luz, más oscura
+    const m = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }), [p0, p1, p2, p3] = c.p;
+    const mitades = c.w >= c.h ? [[p0, p1, m(p1, p2), m(p3, p0)], [m(p3, p0), m(p1, p2), p2, p3]] : [[p0, m(p0, p1), m(p2, p3), p3], [m(p0, p1), p1, p2, m(p2, p3)]];
+    const cara = (h) => { const q = centro(h); return (q.x - c.x) * LUZ.x + (q.y - c.y) * LUZ.y; };
+    c.sombraTecho = cara(mitades[0]) < cara(mitades[1]) ? mitades[0] : mitades[1];
+    c.cumbrera = c.w >= c.h ? [m(p3, p0), m(p1, p2)] : [m(p0, p1), m(p2, p3)];
+  }
+  for (const e of edificios) prisma(e);
+  for (const a of [...arboles, ...parque.arboles, ...verdes.flatMap((v) => v.arboles || [])]) {
+    a.alto = 36 + rnd() * 24; a.cx = a.x; a.cy = a.y;
+    const tono = rnd();
+    [a.c1, a.c2] = tono < 0.72 ? ['#4F9E45', '#7CC456'] : tono < 0.86 ? ['#E08A35', '#F4B04E'] : ['#B9B23C', '#DCD35A'];
+    a.arbol = true;
+  }
+  const VOLUMENES = [...casas, ...edificios, ...arboles, ...parque.arboles, ...verdes.flatMap((v) => v.arboles || [])];
 
   // Banderines: cruzan las calles, más cerca de la fiesta (el parque)
   const banderines = [];
@@ -1275,7 +1328,7 @@
     let sx = 0, sy = 0;
     if (k.golpe > 0 && !quieto) { sx = azar(-6, 6) * k.golpe; sy = azar(-6, 6) * k.golpe; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#5E9E4C'; // patios y huertas: el pasto de atrás de las casas
+    ctx.fillStyle = '#8CC85E'; // patios y huertas: el pasto de atrás de las casas
     ctx.fillRect(0, 0, W, H);
     piv += ((S.decidiendo ? 0.3 : PIVOTE) - piv) * Math.min(1, dt * 4);
     ctx.translate(W / 2 + sx, H * piv + sy);
@@ -1287,40 +1340,61 @@
     const ve = (x, y, w, h) => x + w > S.cam.x - R && x < S.cam.x + R && y + h > S.cam.y - R && y < S.cam.y + R;
 
     const veC = (c) => ve(c.x, c.y, c.w, c.h);
+    // lo alto se corre hacia arriba de la pantalla: en el mundo, hacia donde mira la cámara
+    AX = Math.cos(S.cam.ang) * C.inclina; AY = Math.sin(S.cam.ang) * C.inclina;
 
-    // verdes, el parque, los árboles de los patios y las casas
+    // el suelo: verdes y el parque
     for (const v of verdes) if (veC(v.caja)) verde(v);
     if (veC(parque.caja)) parqueDibujo();
-    for (const a of arboles) if (ve(a.x - a.r, a.y - a.r, 2 * a.r, 2 * a.r)) arbol(a);
-    for (const e of edificios) if (veC(e.caja)) edificio(e);
-    for (const c of casas) if (ve(c.x - c.r, c.y - c.r, 2 * c.r, 2 * c.r)) teja(c);
-    // calles: primero la vereda, encima la calzada y la línea del centro (las de afuera del radio de juego también)
+    // calles: primero el bordillo y la vereda, encima la calzada y la línea del centro (las de afuera del radio de juego también)
     const lineas = [];
     for (const t of tramos) if (veC(t.caja)) lineas.push(t);
     for (const t of vistas) if (veC(t.caja)) lineas.push(t);
     const rs = redondeles.filter((r) => ve(r.x - r.R - 20, r.y - r.R - 20, 2 * r.R + 40, 2 * r.R + 40));
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#CFC6B4'; ctx.fillStyle = '#CFC6B4';
-    for (const l of lineas) { ctx.lineWidth = 2 * (l.hw + 14); trazo(l); }
-    for (const r of rs) { ctx.beginPath(); ctx.arc(r.x, r.y, r.R + 14, 0, 7); ctx.fill(); }
-    ctx.strokeStyle = '#56565C'; ctx.fillStyle = '#56565C';
+    ctx.strokeStyle = '#C9B99D'; ctx.fillStyle = '#C9B99D';
+    for (const l of lineas) { ctx.lineWidth = 2 * (l.hw + 20); trazo(l); }
+    for (const r of rs) { ctx.beginPath(); ctx.arc(r.x, r.y, r.R + 20, 0, 7); ctx.fill(); }
+    ctx.strokeStyle = '#EDE4D3'; ctx.fillStyle = '#EDE4D3';
+    for (const l of lineas) { ctx.lineWidth = 2 * (l.hw + 16); trazo(l); }
+    for (const r of rs) { ctx.beginPath(); ctx.arc(r.x, r.y, r.R + 16, 0, 7); ctx.fill(); }
+    ctx.strokeStyle = '#B9AE9C'; ctx.fillStyle = '#B9AE9C'; // el filo del bordillo
+    for (const l of lineas) { ctx.lineWidth = 2 * (l.hw + 3); trazo(l); }
+    for (const r of rs) { ctx.beginPath(); ctx.arc(r.x, r.y, r.R + 3, 0, 7); ctx.fill(); }
+    ctx.strokeStyle = '#8D8985'; ctx.fillStyle = '#8D8985';
     for (const l of lineas) { ctx.lineWidth = 2 * l.hw; trazo(l); }
     for (const r of rs) { ctx.beginPath(); ctx.arc(r.x, r.y, r.R, 0, 7); ctx.fill(); }
-    ctx.strokeStyle = 'rgba(242,225,75,.5)'; ctx.lineWidth = 3; ctx.setLineDash([22, 22]); ctx.lineCap = 'butt';
+    ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 4; ctx.setLineDash([26, 26]); ctx.lineCap = 'butt';
     for (const l of lineas) trazo(l);
     ctx.setLineDash([]);
+    // pasos de cebra al llegar a cada cruce
+    ctx.fillStyle = 'rgba(255,255,255,.82)';
+    for (const t of lineas) if (t.a && t.L > 520) for (const fin of [0, 1]) {
+      const nodo = fin ? t.b : t.a;
+      if (nodo.tramos.length < 3 || nodo.redondel) continue;
+      const m = enTramo(t, fin ? t.L - t.hw - 40 : t.hw + 40);
+      ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(Math.atan2(m.uy, m.ux));
+      for (let y = -t.hw + 14; y < t.hw - 22; y += 26) ctx.fillRect(-16, y, 32, 14);
+      ctx.restore();
+    }
     for (const r of rs) redondel(r);
     for (const p of puestos) if (veC(p.caja)) puesto(p);
     for (const c of vallas) if (ve(c.x - c.largo, c.y - c.largo, 2 * c.largo, 2 * c.largo)) cierre(c, true);
     for (const c of cierres) if (ve(c.x - c.largo, c.y - c.largo, 2 * c.largo, 2 * c.largo)) cierre(c);
     if (ve(ESTACION.x - 420, ESTACION.y - 420, 840, 840)) estacionDibujo();
+    // casas y árboles con altura: primero todas las sombras, después de lo más lejano a lo más cercano
+    const altos = VOLUMENES.filter((o) => ve(o.cx - o.r - 80, o.cy - o.r - 80, 2 * o.r + 160, 2 * o.r + 160));
+    ctx.fillStyle = 'rgba(40,70,30,.22)';
+    for (const o of altos) sombraVol(o);
+    altos.sort((a, b) => (b.cx * AX + b.cy * AY) - (a.cx * AX + a.cy * AY));
+    for (const o of altos) if (o.arbol) arbol3d(o); else volumen(o);
     // caminantes
     for (const c of S.caminantes) if (c.px !== undefined && ve(c.px - 40, c.py - 40, 80, 80)) caminante(c);
     // caídos en el suelo
     for (const f of S.volando) if (f.z <= 0) persona(f.x, f.y, f.p, 1, f.t * f.giro * 0.1, true);
 
     // gusanito: sombras, cuerpos, toldos
-    ctx.fillStyle = 'rgba(0,0,0,.25)';
+    ctx.fillStyle = 'rgba(30,40,20,.28)';
     for (const v of S.vagones) sombra(v.x, v.y, v.ang, C.vagonL, C.vagonA);
     sombra(k.x, k.y, k.ang, C.cabezaL, C.cabezaA);
     barras();
@@ -1351,7 +1425,7 @@
     }
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const fuente = Math.round(clamp(22 * zoom, 16, 28));
-    ctx.font = `900 ${fuente}px Montserrat, "Arial Black", sans-serif`;
+    ctx.font = `900 ${fuente}px Fredoka, Montserrat, "Arial Black", sans-serif`;
     // de regreso, la estación dice dónde parar
     if (S.vuelta !== null && S.vuelta <= 12 && S.est.carga >= 0) {
       const q = aPantalla(ESTACION.x, ESTACION.y), y = q.y - 70 - (quieto ? 0 : Math.abs(Math.sin(S.est.t * 3)) * 8);
@@ -1361,12 +1435,12 @@
     // nombres de los lugares y de las calles, derechos en la pantalla
     const cerca = (o) => Math.abs(o.x - S.cam.x) < R && Math.abs(o.y - S.cam.y) < R;
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(30,15,40,.5)'; ctx.fillStyle = 'rgba(255,255,255,.8)';
-    ctx.font = '700 12px Montserrat, sans-serif';
+    ctx.font = '700 12px Fredoka, Montserrat, sans-serif';
     for (const l of letreros) if (cerca(l)) { const q = aPantalla(l.x, l.y); ctx.strokeText(l.t, q.x, q.y); ctx.fillText(l.t, q.x, q.y); }
     ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(30,15,40,.6)'; ctx.fillStyle = '#F6EBD3';
-    ctx.font = `900 ${Math.round(clamp(18 * zoom, 14, 22))}px Montserrat, sans-serif`;
+    ctx.font = `900 ${Math.round(clamp(18 * zoom, 14, 22))}px Fredoka, Montserrat, sans-serif`;
     for (const l of rotulos) if (cerca(l)) { const q = aPantalla(l.x, l.y); ctx.strokeText(l.t.toUpperCase(), q.x, q.y); ctx.fillText(l.t.toUpperCase(), q.x, q.y); }
-    ctx.font = `900 ${fuente}px Montserrat, "Arial Black", sans-serif`;
+    ctx.font = `900 ${fuente}px Fredoka, Montserrat, "Arial Black", sans-serif`;
     const lugares = []; // para que dos textos no caigan uno encima del otro
     for (const t of S.textos) {
       const q = aPantalla(t.x, t.y), w = ctx.measureText(t.t).width;
@@ -1385,6 +1459,58 @@
     if (S.corriendo) flechas();
   }
 
+  let AX = 0, AY = 0; // cuánto se corre hacia arriba de la pantalla cada px de altura (lo pone dibujar)
+  function sombraVol(o) {
+    const sx = SOMBRA.x * o.alto * 0.45, sy = SOMBRA.y * o.alto * 0.45;
+    if (o.arbol) { ctx.beginPath(); ctx.ellipse(o.x + sx * 0.6, o.y + sy * 0.6, o.r * 1.05, o.r * 0.85, 0, 0, 7); ctx.fill(); return; }
+    ctx.beginPath(); o.p.forEach((q, i) => (i ? ctx.lineTo(q.x + sx, q.y + sy) : ctx.moveTo(q.x + sx, q.y + sy))); ctx.closePath(); ctx.fill();
+  }
+  // una casa o edificio: las paredes que miran a la cámara (con ventanas) y el techo arriba
+  function volumen(o) {
+    const ox = AX * o.alto, oy = AY * o.alto;
+    for (const s of o.lados) {
+      if (s.nx * AX + s.ny * AY >= 0) continue; // esa pared mira para el otro lado
+      ctx.beginPath(); ctx.moveTo(s.a.x, s.a.y); ctx.lineTo(s.b.x, s.b.y); ctx.lineTo(s.b.x + ox, s.b.y + oy); ctx.lineTo(s.a.x + ox, s.a.y + oy); ctx.closePath();
+      ctx.fillStyle = o.pared; ctx.fill();
+      if (s.oscuro > 0.01) { ctx.fillStyle = `rgba(90,50,40,${s.oscuro.toFixed(3)})`; ctx.fill(); }
+      if (o.ventanas && s.l > 40) { // ventanas: una cada 40 px, en el medio de la pared
+        const n = Math.floor(s.l / 40), dx = s.b.x - s.a.x, dy = s.b.y - s.a.y, w = 7 / s.l;
+        ctx.fillStyle = S.noche ? '#FFE48A' : '#8FB8D6';
+        for (let k = 0; k < n; k++) {
+          const t = (k + 0.5) / n, z0 = 0.28, z1 = o.alto > 60 ? 0.48 : 0.7;
+          for (const [za, zb] of o.alto > 60 ? [[z0, z1], [0.62, 0.84]] : [[z0, z1]]) {
+            ctx.beginPath();
+            ctx.moveTo(s.a.x + dx * (t - w) + ox * za, s.a.y + dy * (t - w) + oy * za);
+            ctx.lineTo(s.a.x + dx * (t + w) + ox * za, s.a.y + dy * (t + w) + oy * za);
+            ctx.lineTo(s.a.x + dx * (t + w) + ox * zb, s.a.y + dy * (t + w) + oy * zb);
+            ctx.lineTo(s.a.x + dx * (t - w) + ox * zb, s.a.y + dy * (t - w) + oy * zb);
+            ctx.closePath(); ctx.fill();
+          }
+        }
+      }
+    }
+    // techo
+    const techo = (pts) => { ctx.beginPath(); pts.forEach((q, i) => (i ? ctx.lineTo(q.x + ox, q.y + oy) : ctx.moveTo(q.x + ox, q.y + oy))); ctx.closePath(); };
+    techo(o.p); ctx.fillStyle = o.techo; ctx.fill();
+    if (o.sombraTecho) { techo(o.sombraTecho); ctx.fillStyle = 'rgba(120,40,20,.22)'; ctx.fill(); }
+    techo(o.p); ctx.strokeStyle = 'rgba(110,50,30,.35)'; ctx.lineWidth = 2.5; ctx.stroke();
+    if (o.cumbrera) {
+      ctx.strokeStyle = 'rgba(255,240,220,.6)'; ctx.lineWidth = 3; ctx.beginPath();
+      ctx.moveTo(o.cumbrera[0].x + ox, o.cumbrera[0].y + oy); ctx.lineTo(o.cumbrera[1].x + ox, o.cumbrera[1].y + oy); ctx.stroke();
+    }
+    if (o.iglesia && o.grande > 30000) { // cruz en el techo de las iglesias grandes
+      ctx.fillStyle = '#C9A15A'; const x = o.cx + ox, y = o.cy + oy;
+      ctx.fillRect(x - 4, y - 20, 8, 40); ctx.fillRect(x - 14, y - 9, 28, 8);
+    }
+  }
+  // árbol: tronco y copa redonda, con brillo del lado de la luz
+  function arbol3d(a) {
+    const ox = AX * a.alto, oy = AY * a.alto;
+    ctx.strokeStyle = '#8A5A3B'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x + ox * 0.6, a.y + oy * 0.6); ctx.stroke();
+    ctx.fillStyle = a.c1; ctx.beginPath(); ctx.arc(a.x + ox, a.y + oy, a.r, 0, 7); ctx.fill();
+    ctx.fillStyle = a.c2; ctx.beginPath(); ctx.arc(a.x + ox + LUZ.x * a.r * 0.28, a.y + oy + LUZ.y * a.r * 0.28, a.r * 0.62, 0, 7); ctx.fill();
+  }
   function trazo(l) {
     ctx.beginPath(); ctx.moveTo(l.p[0].x, l.p[0].y);
     for (let n = 1; n < l.p.length; n++) ctx.lineTo(l.p[n].x, l.p[n].y);
@@ -1427,42 +1553,49 @@
   // Parques y campos que no son el de la estación
   function verde(v) {
     poli(v.p);
-    ctx.fillStyle = v.campo ? '#7E9C45' : '#6DB356'; ctx.fill();
+    ctx.fillStyle = v.campo ? '#A9C25A' : '#9CD565'; ctx.fill();
     if (v.campo) { // surcos
       const b = v.caja;
       ctx.save(); poli(v.p); ctx.clip();
       ctx.strokeStyle = 'rgba(60,80,30,.35)'; ctx.lineWidth = 6; ctx.beginPath();
       for (let x = b.x - b.h; x < b.x + b.w; x += 26) { ctx.moveTo(x, b.y); ctx.lineTo(x + b.h, b.y + b.h); }
       ctx.stroke(); ctx.restore();
-    } else for (const a of v.arboles) arbol(a);
+    }
   }
 
   // El parque de la estación: pasto, caminos, árboles y el kiosco en el medio
   function parqueDibujo() {
     const P = parque;
-    poli(P.p); ctx.fillStyle = '#6DB356'; ctx.fill();
+    poli(P.p); ctx.fillStyle = '#9CD565'; ctx.fill();
     ctx.save(); poli(P.p); ctx.clip();
-    ctx.strokeStyle = '#D9CCAE'; ctx.lineWidth = 26; ctx.lineCap = 'butt';
-    ctx.beginPath(); // caminos del kiosco a cada lado, y en anillo
-    for (let k = 0; k < P.p.length; k++) {
-      const a = P.p[k], b = P.p[(k + 1) % P.p.length];
-      if (Math.hypot(b.x - a.x, b.y - a.y) < 200) continue;
-      ctx.moveTo(P.x, P.y); ctx.lineTo((a.x + b.x) / 2, (a.y + b.y) / 2);
-    }
-    ctx.stroke();
-    ctx.beginPath(); ctx.arc(P.x, P.y, P.r * 0.5, 0, 7); ctx.stroke();
+    ctx.lineCap = 'butt';
+    const caminos = () => {
+      ctx.beginPath(); // caminos del kiosco a cada lado, y en anillo
+      for (let k = 0; k < P.p.length; k++) {
+        const a = P.p[k], b = P.p[(k + 1) % P.p.length];
+        if (Math.hypot(b.x - a.x, b.y - a.y) < 200) continue;
+        ctx.moveTo(P.x, P.y); ctx.lineTo((a.x + b.x) / 2, (a.y + b.y) / 2);
+      }
+      ctx.moveTo(P.x + P.r * 0.5, P.y); ctx.arc(P.x, P.y, P.r * 0.5, 0, 7);
+      ctx.stroke();
+    };
+    ctx.strokeStyle = '#E39A5B'; ctx.lineWidth = 38; caminos(); // borde de ladrillo
+    ctx.strokeStyle = '#F6D497'; ctx.lineWidth = 28; caminos();
     ctx.restore();
-    for (const a of P.arboles) arbol(a);
-    // kiosco
-    const o = { x: P.x, y: P.y, r: 56 };
-    ctx.fillStyle = '#F1ECE2'; ctx.beginPath(); ctx.arc(o.x, o.y, o.r + 8, 0, 7); ctx.fill();
-    ctx.fillStyle = '#1B5FAA'; ctx.beginPath();
-    for (let n = 0; n < 8; n++) { const a = n * Math.PI / 4 + Math.PI / 8; ctx.lineTo(o.x + Math.cos(a) * o.r, o.y + Math.sin(a) * o.r); }
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#F2E14B'; ctx.lineWidth = 3; ctx.beginPath();
-    for (let n = 0; n < 8; n++) { const a = n * Math.PI / 4 + Math.PI / 8; ctx.moveTo(o.x, o.y); ctx.lineTo(o.x + Math.cos(a) * o.r, o.y + Math.sin(a) * o.r); }
+    // kiosco: base, columnas y techo azul en punta
+    const o = { x: P.x, y: P.y, r: 56 }, ox = AX * 46, oy = AY * 46;
+    ctx.fillStyle = 'rgba(40,70,30,.25)'; ctx.beginPath(); ctx.arc(o.x + SOMBRA.x * 26, o.y + SOMBRA.y * 26, o.r + 6, 0, 7); ctx.fill();
+    ctx.fillStyle = '#F4EBDC'; ctx.beginPath(); ctx.arc(o.x, o.y, o.r + 8, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 6; ctx.beginPath();
+    for (let n = 0; n < 8; n++) { const a = n * Math.PI / 4 + Math.PI / 8, x = o.x + Math.cos(a) * (o.r - 6), y = o.y + Math.sin(a) * (o.r - 6); ctx.moveTo(x, y); ctx.lineTo(x + ox, y + oy); }
     ctx.stroke();
-    ctx.fillStyle = '#D6382B'; ctx.beginPath(); ctx.arc(o.x, o.y, 8, 0, 7); ctx.fill();
+    const punta = { x: o.x + ox * 1.55, y: o.y + oy * 1.55 };
+    for (let n = 0; n < 8; n++) {
+      const a1 = n * Math.PI / 4 + Math.PI / 8, a2 = a1 + Math.PI / 4;
+      ctx.beginPath(); ctx.moveTo(o.x + ox + Math.cos(a1) * o.r, o.y + oy + Math.sin(a1) * o.r); ctx.lineTo(o.x + ox + Math.cos(a2) * o.r, o.y + oy + Math.sin(a2) * o.r); ctx.lineTo(punta.x, punta.y); ctx.closePath();
+      ctx.fillStyle = n % 2 ? '#2F7FD0' : '#4C9BE6'; ctx.fill();
+    }
+    ctx.fillStyle = '#F2B33D'; ctx.beginPath(); ctx.arc(punta.x, punta.y, 8, 0, 7); ctx.fill();
   }
 
   // Puestos de la feria en la calle: toldos de colores uno tras otro (hacen la calle angosta)
@@ -1492,7 +1625,7 @@
     if (borde) { // letrero mirando hacia adentro del pueblo (+y local es hacia adentro)
       ctx.fillStyle = '#F2E14B'; rr(-58, 34, 116, 30, 6); ctx.fill();
       ctx.strokeStyle = '#24150F'; ctx.lineWidth = 2; ctx.stroke();
-      ctx.fillStyle = '#24150F'; ctx.font = '900 15px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#24150F'; ctx.font = '900 15px Fredoka, Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('CERRADO', 0, 49); // se lee derecho al llegar desde adentro
     }
     ctx.restore();
@@ -1500,11 +1633,12 @@
 
   // Redondel: calzada redonda, carril pintado e isla con flores (la vereda y la calzada van con las calles)
   function redondel(r) {
-    ctx.fillStyle = '#56565C'; ctx.beginPath(); ctx.arc(r.x, r.y, r.R, 0, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(242,225,75,.5)'; ctx.lineWidth = 3; ctx.setLineDash([22, 22]);
+    ctx.fillStyle = '#8D8985'; ctx.beginPath(); ctx.arc(r.x, r.y, r.R, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 4; ctx.setLineDash([26, 26]);
     ctx.beginPath(); ctx.arc(r.x, r.y, (r.isla + r.R) / 2 + 6, 0, 7); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = '#CFC6B4'; ctx.beginPath(); ctx.arc(r.x, r.y, r.isla, 0, 7); ctx.fill();
-    ctx.fillStyle = '#5E9E4C'; ctx.beginPath(); ctx.arc(r.x, r.y, r.isla - 9, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(40,70,30,.25)'; ctx.beginPath(); ctx.arc(r.x + SOMBRA.x * 10, r.y + SOMBRA.y * 10, r.isla, 0, 7); ctx.fill();
+    ctx.fillStyle = '#E39A5B'; ctx.beginPath(); ctx.arc(r.x, r.y, r.isla, 0, 7); ctx.fill();
+    ctx.fillStyle = '#9CD565'; ctx.beginPath(); ctx.arc(r.x, r.y, r.isla - 9, 0, 7); ctx.fill();
     const flores = ['#E8458B', '#F2E14B', '#F6EBD3', '#D6382B', '#7E3592'];
     for (let n = 0; n < 14; n++) { const a = n / 14 * Math.PI * 2; ctx.fillStyle = flores[n % flores.length]; ctx.beginPath(); ctx.arc(r.x + Math.cos(a) * (r.isla - 22), r.y + Math.sin(a) * (r.isla - 22), 6, 0, 7); ctx.fill(); }
     // monumento
@@ -1520,7 +1654,7 @@
     ctx.strokeStyle = e.carga > 0 ? '#8BD43B' : '#F2E14B'; ctx.lineWidth = 5; ctx.setLineDash([14, 10]);
     rr(-260, -62, 520, 92, 16); ctx.stroke(); ctx.setLineDash([]);
     if (e.carga > 0) { ctx.fillStyle = 'rgba(139,212,59,.35)'; rr(-260, -62, 520 * Math.min(1, e.carga / 0.6), 92, 16); ctx.fill(); }
-    ctx.font = '900 26px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '900 26px Fredoka, Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = 'rgba(242,225,75,.55)'; ctx.fillText('ESTACIÓN', 0, -40);
     // la fila, en la vereda, hacia atrás de la boletería
     e.fila.forEach((p, i) => {
@@ -1535,7 +1669,7 @@
     ctx.fillStyle = '#F1ECE2'; rr(bx, 46, 56, 40, 6); ctx.fill();
     for (let n = 0; n < 4; n++) { ctx.fillStyle = ['#E8458B', '#F2E14B', '#8BD43B', '#5FB4E6'][n]; ctx.fillRect(bx + n * 14, 84, 14, 10); }
     ctx.fillStyle = '#E8458B'; rr(bx - 4, 56, 64, 18, 4); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = '900 11px Montserrat, sans-serif';
+    ctx.fillStyle = '#fff'; ctx.font = '900 11px Fredoka, Montserrat, sans-serif';
     ctx.fillText('GUSANITO', bx + 28, 65);
     ctx.restore();
   }
@@ -1601,7 +1735,7 @@
       const f = v.fatiga || 0;
       ctx.strokeStyle = f > 0.5 ? '#E8458B' : f > 0.2 ? '#F2B33D' : '#2A2A2E';
       ctx.lineWidth = 5 + 3 * Math.min(1, f);
-      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(fx, fy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hx + AX * 6, hy + AY * 6); ctx.lineTo(fx + AX * 6, fy + AY * 6); ctx.stroke();
       hx = v.x - Math.cos(v.ang) * C.vagonL / 2; hy = v.y - Math.sin(v.ang) * C.vagonL / 2;
     }
   }
@@ -1616,12 +1750,21 @@
     }
   }
 
+  // el costado de la carrocería: el cuerpo en la base, oscurecido (encima, más arriba, va el cuerpo de verdad)
+  function carroceria(l, a, r, color) {
+    ctx.fillStyle = color; rr(-l / 2, -a / 2, l, a, r); ctx.fill();
+    ctx.fillStyle = 'rgba(40,20,40,.38)'; rr(-l / 2, -a / 2, l, a, r); ctx.fill();
+  }
   function vagon(v, ultimo) {
     const l = C.vagonL, a = C.vagonA, t = performance.now() / 1000;
     ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.ang);
     // ladeo visual: el cuerpo se inclina hacia afuera cuando se mece
     const ladeo = clamp(-Math.sign(v.gir) * v.g / 700, -1, 1);
     llantas(l, a, vuelta((v.lz ?? v.ang) - v.ang));
+    carroceria(l, a, a / 2.4, v.pal.borde);
+    ctx.restore();
+    // la carrocería va más arriba que las llantas (se corre hacia arriba de la pantalla)
+    ctx.save(); ctx.translate(v.x + AX * 12, v.y + AY * 12); ctx.rotate(v.ang);
     ctx.translate(0, ladeo * 3);
     ctx.fillStyle = v.pal.borde; rr(-l / 2, -a / 2, l, a, a / 2.4); ctx.fill();
     ctx.fillStyle = v.pal.cuerpo; rr(-l / 2 + 3, -a / 2 + 3, l - 6, a - 6, a / 2.8); ctx.fill();
@@ -1659,7 +1802,7 @@
     }
     ctx.restore();
     // toldo: más arriba, así que se ve más ladeado y medio transparente
-    ctx.save(); ctx.translate(v.x - ladeo * Math.sin(v.ang) * 6, v.y + ladeo * Math.cos(v.ang) * 6); ctx.rotate(v.ang);
+    ctx.save(); ctx.translate(v.x + AX * 30 - ladeo * Math.sin(v.ang) * 6, v.y + AY * 30 + ladeo * Math.cos(v.ang) * 6); ctx.rotate(v.ang);
     toldo(l - 6, a + 8, v.pal.toldo, 0.5);
     ctx.restore();
   }
@@ -1687,6 +1830,9 @@
     const k = S.cab, l = C.cabezaL, a = C.cabezaA, t = performance.now() / 1000;
     ctx.save(); ctx.translate(k.x, k.y); ctx.rotate(k.ang);
     llantas(l, a, k.giro * C.volanteMax);
+    carroceria(l, a, a / 2, '#E8458B');
+    ctx.restore();
+    ctx.save(); ctx.translate(k.x + AX * 12, k.y + AY * 12); ctx.rotate(k.ang);
     // cuerpo: escarabajo verde limón con franja fucsia
     ctx.fillStyle = '#E8458B'; rr(-l / 2, -a / 2, l, a, a / 2); ctx.fill();
     ctx.fillStyle = '#8BD43B'; rr(-l / 2 + 3, -a / 2 + 3, l - 6, a - 6, a / 2.3); ctx.fill();
@@ -1731,7 +1877,7 @@
     }
     ctx.restore();
     // toldo del chofer
-    ctx.save(); ctx.translate(k.x, k.y); ctx.rotate(k.ang); ctx.translate(-14, 0);
+    ctx.save(); ctx.translate(k.x + AX * 30, k.y + AY * 30); ctx.rotate(k.ang); ctx.translate(-14, 0);
     toldo(40, a + 6, ['#E8458B', '#F2E14B', '#5FB4E6', '#8BD43B'], 0.5);
     ctx.restore();
   }
@@ -1779,18 +1925,20 @@
     if (avg === null) return;
     const x = W / 2 + Math.max(58, 70 * zoom), alto = 104, ancho = 12, top = H * piv - alto / 2;
     const col = avg >= 0.995 ? '#F2E14B' : avg >= C.minDiv ? '#8BD43B' : '#F2B33D';
-    ctx.fillStyle = 'rgba(20,12,30,.55)'; rr(x - 11, top - 32, ancho + 22, alto + 56, 12); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.18)'; rr(x, top, ancho, alto, 6); ctx.fill();
+    ctx.fillStyle = 'rgba(122,82,40,.35)'; rr(x - 11, top - 28, ancho + 22, alto + 56, 12); ctx.fill(); // sombra abajo
+    ctx.fillStyle = '#FFF6E3'; rr(x - 11, top - 32, ancho + 22, alto + 56, 12); ctx.fill();
+    ctx.strokeStyle = '#E8CF9C'; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.fillStyle = 'rgba(122,82,40,.18)'; rr(x, top, ancho, alto, 6); ctx.fill();
     const hh = Math.max(ancho, alto * avg);
     ctx.fillStyle = col; rr(x, top + alto - hh, ancho, hh, 6); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.fillRect(x - 5, top + alto * (1 - C.minDiv) - 1, ancho + 10, 2); // 75 %
+    ctx.fillStyle = '#5A3B22'; ctx.fillRect(x - 5, top + alto * (1 - C.minDiv) - 1, ancho + 10, 2.5); // 75 %
     // carita: más sonrisa, más diversión
     const fx = x + ancho / 2, fy = top - 16;
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(fx, fy, 10, 0, 7); ctx.fill();
     ctx.fillStyle = '#24150F'; ctx.beginPath(); ctx.arc(fx - 3.5, fy - 2.5, 1.6, 0, 7); ctx.arc(fx + 3.5, fy - 2.5, 1.6, 0, 7); ctx.fill();
     ctx.strokeStyle = '#24150F'; ctx.lineWidth = 1.8; ctx.beginPath();
     ctx.moveTo(fx - 5, fy + 3); ctx.quadraticCurveTo(fx, fy + 3 + (avg - 0.5) * 9, fx + 5, fy + 3); ctx.stroke();
-    ctx.font = '800 12px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+    ctx.font = '700 13px Fredoka, Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#5A3B22';
     ctx.fillText(Math.round(avg * 100) + '%', fx, top + alto + 13);
   }
 
@@ -1827,7 +1975,7 @@
     ctx.fillStyle = urge && S.vuelta < 0 ? '#FF8A7A' : '#F2E14B'; ctx.strokeStyle = '#24150F'; ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-8, -12); ctx.lineTo(-3, 0); ctx.lineTo(-8, 12); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.restore();
-    ctx.font = '800 11px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '800 11px Fredoka, Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(30,15,40,.8)'; ctx.fillStyle = '#fff';
     const lx = cx + Math.cos(b) * (r + 30), ly = cy + Math.sin(b) * (r + 30);
     ctx.strokeText('Estación', lx, ly); ctx.fillText('Estación', lx, ly);
