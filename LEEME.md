@@ -15,15 +15,16 @@ en una.red, no aquí.
 - El gusanito arranca **estacionado en la estación del Parque Central**, con 2 vagones. La gente hace fila y se sube.
 - **Cada vuelta dura 60 s, siempre lo mismo** (`C.vuelta`), tenga el largo que tenga. Regresa a la estación
   antes de que se acabe. Si te demoras, la fila se cansa y **se va** (cada uno baja la **confianza**).
-- **La diversión es lo que cuenta**. Zigzag y **redondeles** (ahí el meneo vale ×1,5). Pero **desde la tercera
-  vuelta seguida a un redondel se marean** (`C.mareoDesde`): cada vuelta más les baja 15 % de diversión
-  (`C.mareo`), no da bono y les quita el 100 %. Se les pasa después de 8 s fuera de los redondeles
-  (`C.mareoOlvida`) o al salir de nuevo de la estación. Entre más gente a
+- **La diversión es lo que cuenta**. Zigzag y **redondeles** (ahí el meneo vale ×1,5). Pero **al tercer giro completo se marean**
+  (`C.mareoDesde`): cuenta todo lo que gira la cabeza para el mismo lado, en un redondel o en cualquier parte
+  (el zigzag no suma, porque va para los dos lados). Desde el tercer giro, cada giro más les baja 20 % de
+  diversión (`C.mareo`), el redondel no da bono, pierden el 100 % y **mientras están mareados nada los divierte**.
+  Se les pasa si están 10 s sin dar otro giro completo (`C.mareoOlvida`). Entre más gente a
   bordo, más cuesta divertirlos: cada pasajero por encima de 4 resta un 8 % de velocidad, hasta un 60 % menos.
 - **Para cobrar, el grupo tiene que llegar con 75 % de diversión o más.** Si no, **piden devuelto**, llegues
   a tiempo o no: no pagan y la fila se molesta.
 - **Se bajan al final de la vuelta** (en los últimos 12 s, `C.ventana`, o después si llegas tarde), **o antes
-  si llegan al 100 %**. Si te estacionas antes, te dice cuántos segundos faltan.
+  si llegan al 100 %, pero nunca antes de 30 s de vuelta** (`C.minVuelta`). Si te estacionas antes, te dice cuántos segundos faltan.
 - **Al 100 % ya están contentos**: desde ahí no se aburren (ni al frenar para estacionarte) ni se asustan con el
   meneo. Solo un golpe contra una pared les quita el gusto. Si llegas tarde, sí empiezan a aburrirse.
 - **Calles cerradas**: cada vez que sales de la estación se cierran algunas calles con una valla (1 al principio,
@@ -114,13 +115,18 @@ Todo está en la tabla `NIVELES` al inicio de `gusanito.js`, por cantidad de vag
 
 | Vagones | Precio del vagón (en la estación) | Velocidad | Ayuda | Danzantes | Perros |
 |--------:|----------------------------------:|----------:|------:|----------:|-------:|
-| 2 | (al empezar) | 165 | 100 % | 0 | 3 |
-| 3 | $8 | 185 | 80 % | 1 | 4 |
-| 4 | $20 | 200 | 60 % | 2 | 5 |
-| 5 | $35 | 220 | 45 % | 3 | 6 |
-| 6 | $55 | 235 | 30 % | 4 | 7 |
-| 7 | $80 | 250 | 15 % | 5 | 8 |
-| 8 | $110 | 250 | 0 | 6 | 8 |
+| 2 | (al empezar) | 230 | 100 % | 0 | 3 |
+| 3 | $8 | 250 | 80 % | 1 | 4 |
+| 4 | $20 | 265 | 60 % | 2 | 5 |
+| 5 | $35 | 285 | 45 % | 3 | 6 |
+| 6 | $55 | 300 | 30 % | 4 | 7 |
+| 7 | $80 | 315 | 15 % | 5 | 8 |
+| 8 | $110 | 325 | 0 | 6 | 8 |
+
+Las velocidades son px/s sin acelerar; con el acelerador, un 30 % más. Para que siga siendo manejable a esa
+velocidad, el agarre de la cabeza es 800 (`C.agarreCab`), la barra aguanta 1450 (`C.aguanta`) y el miedo y las
+caídas empiezan un 15 % más arriba que antes. Estos tres valores aún no están medidos con las velocidades
+nuevas: las mediciones de la cola de más abajo son de antes.
 
 Después del 8 no hay tabla: cada vagón nuevo cuesta $40 más (`precioVagon()`), y la velocidad, la ayuda y
 la cantidad de danzantes y perros se quedan en el nivel de 8. El precio se **gasta**: no es un umbral que
