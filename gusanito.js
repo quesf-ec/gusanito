@@ -13,13 +13,13 @@
     escala: 11, anchoCalle: 26, calleMin: 150,
     bordillo: 6,                                       // cuánto se sube a la vereda antes de topar (px)
     redondel: 200, isla: 80, separaRedondel: 1900,     // radio de la calzada del redondel y de su isla; uno por barrio
-    acel: 150, freno: 480,                             // la cabeza (la velocidad máxima va por nivel)
+    acel: 260, freno: 560,                             // la cabeza (la velocidad máxima va por nivel)
     giro: 2.5, giroSuave: 9,
     cabezaL: 78, cabezaA: 46,
     vagonL: 58, vagonA: 44,
     // la cabeza es un carro: gira según el ángulo de las llantas y la distancia entre ejes (radio mínimo),
     // y a mucha velocidad lo limita el agarre. Quieto no gira; en reversa gira al revés.
-    ejes: 50, volanteMax: 0.6, agarreCab: 650, reversa: 45,
+    ejes: 50, volanteMax: 0.6, agarreCab: 800, reversa: 45,
     // cada vagón es un remolque de dos ejes: la lanza tira del eje delantero, que gira con ella
     lanza: 22, giroEje: 0.7,
     agarre: 6,              // cuánto frenan las llantas el deslizamiento lateral (1/s)
@@ -27,7 +27,7 @@
     dobla: 1.1,             // cuánto puede doblar el enganche entre la lanza y el de adelante (rad)
     vagonesMax: Infinity,   // sin tope: lo que limita el largo es que la cola se parte
     asientos: 4,
-    aguanta: 1200,          // sacudida (la que siente la gente) que la barra aguanta sin cansarse
+    aguanta: 1450,          // sacudida (la que siente la gente) que la barra aguanta sin cansarse
     fatiga: 0.6,            // qué tan rápido se cansa cuando la sacudida pasa de lo que aguanta (por segundo, por exceso)
     recupera: 0.25,         // qué tan rápido se recupera una barra que no está forzada
 
@@ -45,9 +45,11 @@
     // acelerador: sin pisarlo el gusanito va a su velocidad normal; pisándolo, la máxima sube (× C.turbo) y
     // acelera más fuerte (× C.turboAcel). Sin límite: el riesgo es lo que cuesta
     turbo: 1.3, turboAcel: 1.8,
-    // mareo: desde la vuelta C.mareoDesde seguida en un redondel, cada vuelta más marea y baja la diversión
-    // (C.mareo por vuelta) en lugar de dar plata. Se les pasa tras C.mareoOlvida s fuera de los redondeles
-    mareoDesde: 3, mareo: 0.15, mareoOlvida: 8,
+    // mareo: cada giro completo de la cabeza para el mismo lado (en un redondel o donde sea; el zigzag no suma)
+    // cuenta. Desde el giro C.mareoDesde se marean: cada giro más les baja C.mareo de diversión, y mientras
+    // están mareados ya nada los divierte. Se les pasa si pasan C.mareoOlvida s sin otro giro completo.
+    mareoDesde: 3, mareo: 0.2, mareoOlvida: 10,
+    minVuelta: 30,          // aunque lleguen al 100 %, no se bajan antes de estos segundos de vuelta
   };
 
   // ─── El gusanito crece con la plata, y con cada vagón el juego se pone más bravo ─
@@ -55,13 +57,13 @@
   // ritmo: qué tan rápido se divierten · miedo / caida: empujón desde el que se asustan / salen volando
   // danzantes, perros: cuántos hay en el pueblo
   const NIVELES = [
-    { vagones: 2, ganado: 0,   vMax: 165, asist: 1,    ritmo: 1.1,  miedo: 900, caida: Infinity, danzantes: 0, perros: 3 },
-    { vagones: 3, ganado: 8,   vMax: 185, asist: 0.8,  ritmo: 1.0,  miedo: 820, caida: 1100, danzantes: 1, perros: 4 },
-    { vagones: 4, ganado: 20,  vMax: 200, asist: 0.6,  ritmo: 0.95, miedo: 750, caida: 980,  danzantes: 2, perros: 5 },
-    { vagones: 5, ganado: 35,  vMax: 220, asist: 0.45, ritmo: 0.9,  miedo: 700, caida: 900,  danzantes: 3, perros: 6 },
-    { vagones: 6, ganado: 55,  vMax: 235, asist: 0.3,  ritmo: 0.85, miedo: 670, caida: 860,  danzantes: 4, perros: 7 },
-    { vagones: 7, ganado: 80,  vMax: 250, asist: 0.15, ritmo: 0.8,  miedo: 650, caida: 820,  danzantes: 5, perros: 8 },
-    { vagones: 8, ganado: 110, vMax: 250, asist: 0,    ritmo: 0.8,  miedo: 630, caida: 800,  danzantes: 6, perros: 8 },
+    { vagones: 2, ganado: 0,   vMax: 230, asist: 1,    ritmo: 1.1,  miedo: 1030, caida: Infinity, danzantes: 0, perros: 3 },
+    { vagones: 3, ganado: 8,   vMax: 250, asist: 0.8,  ritmo: 1.0,  miedo: 940,  caida: 1260, danzantes: 1, perros: 4 },
+    { vagones: 4, ganado: 20,  vMax: 265, asist: 0.6,  ritmo: 0.95, miedo: 860,  caida: 1130, danzantes: 2, perros: 5 },
+    { vagones: 5, ganado: 35,  vMax: 285, asist: 0.45, ritmo: 0.9,  miedo: 800,  caida: 1035, danzantes: 3, perros: 6 },
+    { vagones: 6, ganado: 55,  vMax: 300, asist: 0.3,  ritmo: 0.85, miedo: 770,  caida: 990,  danzantes: 4, perros: 7 },
+    { vagones: 7, ganado: 80,  vMax: 315, asist: 0.15, ritmo: 0.8,  miedo: 750,  caida: 945,  danzantes: 5, perros: 8 },
+    { vagones: 8, ganado: 110, vMax: 325, asist: 0,    ritmo: 0.8,  miedo: 725,  caida: 920,  danzantes: 6, perros: 8 },
   ];
   const nivelDe = (vagones) => NIVELES[clamp(vagones - 2, 0, NIVELES.length - 1)];
   // plata juntada que hace falta para el vagón número n (la tabla llega hasta 8; después cada uno cuesta $40 más)
@@ -425,7 +427,7 @@
       // vuelta: segundos que le quedan a la vuelta con los pasajeros (null = no hay vuelta en curso)
       vuelta: null, avisos: {}, primera: true,
       est: { carga: 0, t: 0, llegaT: 0, fila: [] },
-      turbo: { activo: false, antes: false, humo: 0 }, giros: 0, sinRedondel: 0,
+      turbo: { activo: false, antes: false, humo: 0 }, giros: 0, giroAcc: 0, giroT: 0,
     };
     for (let k = 0; k < S.dif.vagones; k++) agregarVagon();
     for (let k = 0; k < 12; k++) S.est.fila.push(nuevoPasajero());
@@ -730,15 +732,16 @@
 
   // ─── Pasajeros: se divierten con el meneo, se asustan con el latigazo ─
   function pasajeros(dt) {
-    const extra = enRedondel(S.cab.x, S.cab.y, 30) ? (S.giros >= C.mareoDesde ? 0 : 1.5) : 1; // el redondel divierte más… hasta que marea
+    const mareados = S.giros >= C.mareoDesde;
+    const extra = mareados ? 0 : enRedondel(S.cab.x, S.cab.y, 30) ? 1.5 : 1; // el redondel divierte más; mareados, nada los divierte
     const dil = clamp(1 / (1 + Math.max(0, aBordo() - 4) * 0.08), 0.4, 1); // más gente, más difícil divertirlos
     const lento = Math.abs(S.cab.v) < 30 && S.parando <= 0;
     const d = S.dif;
     const tarde = S.vuelta !== null && S.vuelta < 0;
     S.avisoT -= dt;
-    if (!S.listos && S.vuelta !== null && (diversion() ?? 0) >= 0.995) {
+    if (!S.listos && !mareados && S.vuelta !== null && (diversion() ?? 0) >= 0.995) {
       S.listos = true;
-      anunciar('¡100 %! Ya están contentos: llévalos a la estación', '#F2E14B', 3.5);
+      anunciar(yaPuedenBajar() ? '¡100 %! Ya están contentos: llévalos a la estación' : `¡100 %! Sigue paseándolos: se bajan desde los ${C.minVuelta} s`, '#F2E14B', 3.5);
     }
     for (const v of S.vagones) {
       const e = v.g;
@@ -784,7 +787,8 @@
 
   const capacidad = () => S.vagones.length * C.asientos;
   function diversion() { let n = 0, d = 0; for (const v of S.vagones) for (const p of v.asientos) if (p) { n++; d += p.div; } return n ? d / n : null; }
-  const puedenBajar = () => S.vuelta === null || S.vuelta <= C.ventana || (diversion() ?? 0) >= 0.995;
+  const yaPuedenBajar = () => C.vuelta - S.vuelta >= C.minVuelta; // al 100 %, solo después de un rato de vuelta
+  const puedenBajar = () => S.vuelta === null || S.vuelta <= C.ventana || ((diversion() ?? 0) >= 0.995 && yaPuedenBajar());
   const aBordo = () => S.vagones.reduce((n, v) => n + v.asientos.filter(Boolean).length, 0);
   const duracionVuelta = () => C.vuelta;
 
@@ -827,7 +831,7 @@
       e.carga += dt;
       if (e.carga >= 0.6) {
         if (puedenBajar()) { e.carga = -99; llegada(); }
-        else { e.carga = -1.2; texto(ESTACION.x, ESTACION.y - 40, `Aún no: faltan ${Math.ceil(S.vuelta - C.ventana)} s, o llega al 100 %`, '#FFB3A8', 1.6); }
+        else { e.carga = -1.2; texto(ESTACION.x, ESTACION.y - 40, (diversion() ?? 0) >= 0.995 ? `Aún no: se bajan en ${Math.ceil(C.minVuelta - (C.vuelta - S.vuelta))} s` : `Aún no: faltan ${Math.ceil(S.vuelta - C.ventana)} s, o llega al 100 %`, '#FFB3A8', 1.6); }
       }
     } else if (e.carga > 0) e.carga = Math.max(0, e.carga - dt);
     if (e.carga < -1 && !cerca) e.carga = 0; // ya salió: la próxima vez que pare, cuenta
@@ -943,7 +947,7 @@
   function salir() {
     if (!S.decidiendo || aBordo() === 0 || S.comb <= 0) return;
     S.comb--; // cada vuelta gasta una vuelta de combustible
-    S.decidiendo = false; S.vuelta = duracionVuelta(); S.viajeT = 0; S.est.carga = -99; S.listos = false; S.giros = 0;
+    S.decidiendo = false; S.vuelta = duracionVuelta(); S.viajeT = 0; S.est.carga = -99; S.listos = false; S.giros = 0; S.giroAcc = 0; S.giroT = 0;
     cerrarCalles();
     if (S.comb === 1) anunciar('Queda 1 vuelta de combustible: pide más en la estación', '#FFB3A8', 3.5, true);
     if (S.comb === 0) anunciar('Esta es la última vuelta: después hay que pedir combustible', '#FF8A7A', 3.5, true);
@@ -1003,16 +1007,11 @@
   }
 
   // Vueltas al redondel: una vuelta completa por dentro de un redondel da puntos extra (de noche, más),
-  // pero desde la vuelta C.mareoDesde seguida la gente se marea
-  function contarRedondel(dt) {
+  // salvo con la gente mareada
+  function contarRedondel() {
     const k = S.cab;
     const r = redondeles.find((q) => { const d = Math.hypot(k.x - q.x, k.y - q.y); return d > q.isla + 25 && d < q.R - 10; });
-    if (!r) {
-      S.ronda = null;
-      if (S.giros && (S.sinRedondel += dt) >= C.mareoOlvida) S.giros = 0; // se les pasa el mareo
-      return;
-    }
-    S.sinRedondel = 0;
+    if (!r) { S.ronda = null; return; }
     const a = Math.atan2(k.y - r.y, k.x - r.x);
     if (!S.ronda || S.ronda.r !== r) { S.ronda = { r, last: a, acc: 0 }; return; }
     let d = a - S.ronda.last; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
@@ -1020,20 +1019,34 @@
     if (Math.abs(S.ronda.acc) >= 2 * Math.PI) {
       S.ronda.acc -= Math.sign(S.ronda.acc) * 2 * Math.PI;
       S.vueltasRedondel++;
-      S.giros++;
-      if (S.giros >= C.mareoDesde && aBordo() > 0) { // ¡ya marea! baja la diversión y no hay bono
-        S.listos = false;
-        for (const v of S.vagones) for (const p of v.asientos) if (p) { p.div = Math.max(0, p.div - C.mareo); p.feliz = p.div >= 1 && p.feliz; }
-        texto(k.x, k.y - 50, elige(['¡Me mareo!', '¡Ya no más vueltas!', '¡Qué mareo!', '¡Bájenme!']), '#C6F08A', 1.8);
-        if (S.giros === C.mareoDesde) anunciar('¡Se marean! Sal del redondel y haz otra cosa', '#C6F08A', 3, true);
-        sonar('tarde');
-        return;
-      }
+      if (S.giros >= C.mareoDesde) return;
       const bono = Math.round((0.5 + 0.1 * aBordo()) * (S.noche ? 1.5 : 1) * 100) / 100;
       S.plata += bono; S.total += bono;
       texto(k.x, k.y - 50, `¡Vuelta al redondel! +${plata(bono)}`, '#F2E14B', 1.8);
       sonar('plata');
     }
+  }
+
+  // Mareo: suma lo que gira la cabeza (para un lado suma, para el otro resta: el zigzag se anula). Cada giro
+  // completo cuenta; desde el C.mareoDesde la gente se marea y cada giro más les baja la diversión.
+  function mareo(dt, giro) {
+    if (S.vuelta === null || aBordo() === 0) { S.giros = 0; S.giroAcc = 0; return; }
+    S.giroAcc += giro;
+    S.giroT += dt;
+    if (S.giroT >= C.mareoOlvida) { // un buen rato sin dar la vuelta entera: se les pasa
+      if (S.giros >= C.mareoDesde) texto(S.cab.x, S.cab.y - 50, 'Ya se les pasó el mareo', '#fff', 1.6);
+      S.giros = 0; S.giroAcc *= 0.5; S.giroT = 0;
+    }
+    if (Math.abs(S.giroAcc) < 2 * Math.PI) return;
+    S.giroAcc -= Math.sign(S.giroAcc) * 2 * Math.PI;
+    S.giros++; S.giroT = 0;
+    const k = S.cab;
+    if (S.giros < C.mareoDesde) { if (S.giros === C.mareoDesde - 1) texto(k.x, k.y - 70, '¡Uy, ya me da vueltas la cabeza!', '#C6F08A', 1.8); return; }
+    S.listos = false;
+    for (const v of S.vagones) for (const p of v.asientos) if (p) { p.div = Math.max(0, p.div - C.mareo); if (p.div < 1) p.feliz = false; }
+    texto(k.x, k.y - 50, elige(['¡Me mareo!', '¡Ya no más vueltas!', '¡Qué mareo!', '¡Bájenme!']), '#C6F08A', 1.8);
+    if (S.giros === C.mareoDesde) anunciar('¡Se marean! Deja de dar vueltas un rato', '#C6F08A', 3, true);
+    sonar('tarde');
   }
 
   function caminantes(dt) {
@@ -1201,9 +1214,11 @@
     if (S.corriendo) {
       const sub = 3, h = dt / sub;
       turbo(dt);
+      const ang0 = S.cab.ang;
       for (let s = 0; s < sub; s++) { moverCabeza(h); moverVagones(h); }
+      mareo(dt, vuelta(S.cab.ang - ang0));
       pasajeros(dt); estacion(dt); caminantes(dt);
-      romperSiHaceFalta(); colaAviso(); contarRedondel(dt);
+      romperSiHaceFalta(); colaAviso(); contarRedondel();
       if (S.rompiendo > 0 && (S.rompiendo -= dt) <= 0) terminar('partio');
       actualizarHud();
     } else S.turbo.activo = false;
@@ -1828,7 +1843,8 @@
     if (S.decidiendo) txt = 'En la estación';
     else if (vt === null) txt = S.est.fila.length ? 'Estaciónate en el parque' : 'Esperando gente en la fila';
     else if (vt < 0) { txt = '¡Tarde! La fila se va'; clase = 'mal'; }
-    else if (hay && avg >= 0.995) { txt = `¡Listos! A la estación · ${reloj(seg)}`; clase = 'listo'; }
+    else if (hay && S.giros >= C.mareoDesde) { txt = `¡Se marean! Sal de las vueltas · ${reloj(seg)}`; clase = 'mal'; }
+    else if (hay && avg >= 0.995) { txt = yaPuedenBajar() ? `¡Listos! A la estación · ${reloj(seg)}` : `¡100 %! Sigue paseándolos · ${reloj(seg)}`; clase = 'listo'; }
     else if (vt <= C.ventana) { txt = `¡Vuelve a la estación! · ${reloj(seg)}`; clase = avg >= C.minDiv ? 'bien' : 'mal'; }
     else if (hay && avg >= C.minDiv) { txt = `¡Bien! Sigue así · ${reloj(seg)}`; clase = 'bien'; }
     else txt = `Diviértelos · ${reloj(seg)}`;
