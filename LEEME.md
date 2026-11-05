@@ -24,7 +24,7 @@ en una.red, no aquí.
 - **Para cobrar, el grupo tiene que llegar con 75 % de diversión o más.** Si no, **piden devuelto**, llegues
   a tiempo o no: no pagan y la fila se molesta.
 - **Se bajan al final de la vuelta** (en los últimos 12 s, `C.ventana`, o después si llegas tarde), **o antes
-  si llegan al 100 %, pero nunca antes de 30 s de vuelta** (`C.minVuelta`). Si te estacionas antes, te dice cuántos segundos faltan.
+  si llegan al 100 %**, en cualquier momento. Si te estacionas antes, te dice cuántos segundos faltan.
 - **Al 100 % ya están contentos**: desde ahí no se aburren (ni al frenar para estacionarte) ni se asustan con el
   meneo. Solo un golpe contra una pared les quita el gusto. Si llegas tarde, sí empiezan a aburrirse.
 - **Calles cerradas**: cada vez que sales de la estación se cierran algunas calles con una valla (1 al principio,
@@ -37,9 +37,12 @@ en una.red, no aquí.
 - Al llegar, pagan según lo felices que bajen ($0,25 si vienen en 0 %, hasta $1,25 felices, más $0,25 de
   propina si además no se asustaron).
 - **En la estación decides, y el tiempo se para** hasta que digas **¡Vámonos!**:
-  - **Combustible**: cada vuelta gasta una de las 4 vueltas del tanque (●●●●). Llenarlo cuesta
-    $10 + $2 por vagón. Sin combustible no sales; sin combustible ni plata, **pierdes**. Si te quedaste sin
-    combustible, la tienda no te deja comprar otra cosa que te deje sin plata para llenarlo («primero ⛽»).
+  - **Gasolina** (⛽): se gasta **por km recorrido**. Un tanque lleno da 4 km (`C.tanque`), unas tres vueltas a
+    la velocidad normal; cada vagón desde el tercero gasta 8 % más (`C.gasta`) y acelerando, ×1,5. El km cuesta
+    $2,50 + $0,50 por vagón. En la estación **tanqueas**: llena el tanque, o si no te alcanza, pone la gasolina que
+    alcance con tu plata. Con menos de 0,6 km avisa; **sin gasolina el gusanito se arrastra** a 60 px/s
+    (`C.reserva`) hasta la estación. Con menos de 1 km, la tienda no te deja comprar nada que no te deje plata
+    para tanquear hasta 1 km («primero ⛽»). Sin gasolina, sin plata y sin nadie a bordo, **pierdes**.
   - **Vagón nuevo**: su precio sube con cada vagón ($8, $20, $35…). Más vagones = más gente y más plata
     por vuelta, pero una cola más larga se sacude más. Si hay gente en la fila, sube al nuevo.
   - **Barras reforzadas** ($30, $60…): la cola aguanta más sacudida antes de cansarse.
@@ -54,17 +57,18 @@ en una.red, no aquí.
     (`C.raspon`). Si una se cansa del todo, se suelta todo lo de atrás (con su gente) y se acaba. Medido con
     las velocidades nuevas, sin paredes y zigzag amplio (0,9 s a cada lado): con 5 y 6 vagones no se partió
     en 25 s; con 8 se partió a los 6,4 s y con 10, a los 4,3 s. Con 10 y zigzag corto (0,4 s), a los 5,4 s.
-  - **Te quedan sin vidas** (♥♥♥): tres golpes de frente contra la vereda, los puestos, una valla o la isla de
-    un redondel. Cada golpe
+  - **Te quedan sin vidas** (♥♥♥): tres golpes **de frente** (casi derecho contra la pared, `C.deFrente`) y
+    rápidos contra la vereda, los puestos, una valla o la isla de un redondel. Los roces de costado solo frenan un
+    poco y asustan un poquito («¡Uy, rozamos!»). Cada golpe
     **suelta el último vagón** y le baja la confianza a la fila.
   - **Nadie quiere subirse**: la confianza de la fila llega a 0 porque la gente se fue esperando, pidió
     devuelto o le fue mal en los golpes.
-  - **Sin combustible ni plata** para salir.
+  - **Sin gasolina ni plata** para tanquear.
 - **Dos récords** (se guardan en el navegador): el **gusanito más largo** (el pico de vagones) y las **más
   vueltas** (viajes a la estación).
 - **HUD**: arriba, una barra con el objetivo en pocas palabras («Diviértelos», «¡Bien! Sigue así», «¡Listos! A
   la estación», «¡Vuelve a la estación!», «¡Tarde!») con el tiempo de la vuelta y una rayita que se acaba, y la
-  plata. Debajo, fichas chiquitas con vagones 🚃, vueltas 🔁, combustible ⛽ y vidas ♥. **La diversión se ve
+  plata. Debajo, fichas chiquitas con vagones 🚃, vueltas 🔁, gasolina ⛽ (en km) y vidas ♥. **La diversión se ve
   junto al gusanito**: una carita (más sonrisa, más diversión) y una barra con la raya blanca del 75 %. La
   flecha de la estación gira alrededor del gusanito (si la estación queda detrás, se pone a un costado de la
   cola). Los avisos salen debajo de las fichas, como mucho dos y de una sola línea.
@@ -83,7 +87,7 @@ en una.red, no aquí.
   la lanza tira del eje delantero, que gira con ella (se ven las llantas delanteras girar), y el de atrás sigue.
 - **La estación es una bandeja abajo**: arriba se sigue viendo el gusanito estacionado y la fila. Las ofertas
   se deslizan de lado y dicen cuánto falta si no te alcanza; **¡Vámonos!** siempre está a la vista y dice
-  cuánto combustible gasta.
+  cuánta gasolina te queda.
 - La **cámara gira con la cabeza**: la trompa siempre apunta hacia arriba, así ◀ ▶ siempre son izquierda
   y derecha en la pantalla.
 - Topar a los **danzantes** cuesta $0,50 (no quita vidas). Los **perros** salen corriendo a ladrarle al

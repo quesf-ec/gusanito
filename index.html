@@ -194,7 +194,7 @@ body{background:#8CC85E}
     <div class="fichas">
       <span class="ficha-dato" title="Vagones">🚃 <b id="h-largo">2</b></span>
       <span class="ficha-dato" title="Vueltas">🔁 <b id="h-vueltas">0</b></span>
-      <span class="ficha-dato" title="Combustible">⛽ <b id="h-comb">●●●●</b></span>
+      <span class="ficha-dato" title="Gasolina">⛽ <b id="h-comb">4,0 km</b></span>
       <span class="ficha-dato" title="Vidas"><b id="h-vidas">♥♥♥</b></span>
     </div>
     <div class="avisos" id="avisos" aria-live="polite"></div>
@@ -215,10 +215,10 @@ body{background:#8CC85E}
       <ol class="pasos">
         <li><b class="n">1</b><p><b>Para girar</b>, toca y mantén la mitad <b>izquierda</b> o <b>derecha</b> de la pantalla (o ← →). Gira como un carro de verdad: necesita espacio y quieto no gira. <b>Freno</b> (o los dos lados a la vez) frena, y si ya estás parado, va en <b>reversa</b>. <b>Acelera</b> (o ↑) mientras lo mantienes: más meneo, más riesgo. Si lo sueltas, va a su velocidad normal.</p></li>
         <li><b class="n">2</b><p>La gente sube en la <b>estación del parque</b>. Diviértelos con zigzag y <b>redondeles</b> (pero al tercer giro completo se marean): la carita junto al gusanito muestra cuánto. La raya blanca es el <b>75 %</b>.</p></li>
-        <li><b class="n">3</b><p>Se bajan al final de la vuelta, o antes si llegan al <b>100 %</b> (desde los 30 s). Con menos de 75 % <b>piden devuelto</b>; si te demoras, la fila <b>se va</b>.</p></li>
-        <li><b class="n">4</b><p>En la estación compras <b>combustible</b> (cada vuelta gasta), <b>vagones</b> (más gente, más plata, la cola más brava), barras, parlante o luces para la <b>noche</b>.</p></li>
+        <li><b class="n">3</b><p>Se bajan al final de la vuelta, o antes si llegan al <b>100 %</b>. Con menos de 75 % <b>piden devuelto</b>; si te demoras, la fila <b>se va</b>.</p></li>
+        <li><b class="n">4</b><p>En la estación <b>tanqueas</b> (la gasolina se gasta por km; sin gasolina el gusanito se arrastra), <b>vagones</b> (más gente, más plata, la cola más brava), barras, parlante o luces para la <b>noche</b>.</p></li>
       </ol>
-      <p class="caption">Cada vuelta se cierran calles, y en los mercados hay calles angostas con puestos de la feria: busca otro camino. Se acaba cuando la cola se parte, cuando pierdes las tres vidas, cuando la fila pierde la confianza o cuando te quedas sin combustible y sin plata.</p>
+      <p class="caption">Cada vuelta se cierran calles, y en los mercados hay calles angostas con puestos de la feria: busca otro camino. Se acaba cuando la cola se parte, cuando pierdes las tres vidas, cuando la fila pierde la confianza o cuando te quedas sin gasolina y sin plata. Solo los golpes de frente quitan vidas; los roces, no.</p>
       <button class="btn btn--rojo boton-juego btn-block" id="b-arrancar" type="button">¡Arrancar!</button>
     </div>
   </div>
@@ -274,6 +274,6 @@ body{background:#8CC85E}
 
 <script src="https://franciscombp.github.io/ds/mal/mal.js?v=1.0.22" defer></script>
 <script src="mapas/pujili.js?v=1"></script>
-<script src="gusanito.js?v=20"></script>
+<script src="gusanito.js?v=21"></script>
 </body>
 </html>
