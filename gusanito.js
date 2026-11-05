@@ -22,8 +22,10 @@
     ejes: 50, volanteMax: 0.6, agarreCab: 800, reversa: 45,
     // cada vagón es un remolque de dos ejes: la lanza tira del eje delantero, que gira con ella
     lanza: 22, giroEje: 0.7,
-    agarre: 6,              // cuánto frenan las llantas el deslizamiento lateral (1/s)
-    inercia: 0.975,         // cuánto impulso conserva el eje de atrás de cada vagón: más, la cola se desboca antes
+    agarre: 14,             // cuánto frenan las llantas el deslizamiento lateral (1/s): como un remolque de verdad
+    inercia: 0.9,           // cuánto impulso conserva el eje de atrás: con 0,9 el meneo se apaga hacia la cola (más, latigazo)
+    tiro: 0.14,             // cada vagón de atrás suma este tanto a lo que soporta una barra (la de adelante tira de todos)
+    raspon: 0.15,           // cuánto cansa a la barra que su vagón raspe una pared rápido
     dobla: 1.1,             // cuánto puede doblar el enganche entre la lanza y el de adelante (rad)
     vagonesMax: Infinity,   // sin tope: lo que limita el largo es que la cola se parte
     asientos: 4,
@@ -679,7 +681,9 @@
     const k = S.cab, wb = C.vagonL * 0.56; // distancia entre ejes
     let hx = k.x - Math.cos(k.ang) * C.cabezaL / 2, hy = k.y - Math.sin(k.ang) * C.cabezaL / 2; // enganche
     let pa = k.ang; // hacia dónde mira el de adelante
-    for (const v of S.vagones) {
+    const n = S.vagones.length;
+    for (let i = 0; i < n; i++) {
+      const v = S.vagones[i];
       const ocx = v.x, ocy = v.y, oang = v.ang, orx = v.rx, ory = v.ry;
       // 1 · la lanza: el eje delantero queda a su largo del enganche, que dobla hasta C.dobla
       let b = Math.atan2(v.fy - hy, v.fx - hx);
@@ -701,7 +705,7 @@
         const l = Math.hypot(v.rx - v.fx, v.ry - v.fy) || 1;
         v.rx = v.fx + (v.rx - v.fx) / l * wb; v.ry = v.fy + (v.ry - v.fy) / l * wb;
         cx = (v.fx + v.rx) / 2; cy = (v.fy + v.ry) / 2;
-        if (v.golpe <= 0 && Math.hypot(v.vx, v.vy) > 120) { v.golpe = 0.6; polvo(cx, cy, 5); for (const p of v.asientos) if (p) p.miedo += 0.08 * (1 - 0.8 * S.dif.asist); }
+        if (v.golpe <= 0 && Math.hypot(v.vx, v.vy) > 120) { v.golpe = 0.6; polvo(cx, cy, 5); v.fatiga = (v.fatiga || 0) + C.raspon; for (const p of v.asientos) if (p) p.miedo += 0.08 * (1 - 0.8 * S.dif.asist); }
       }
       v.golpe -= dt;
       v.x = cx; v.y = cy;
@@ -723,7 +727,8 @@
       v.g += (Math.min(g, 4000) - v.g) * Math.min(1, dt * 4); // tope solo para que los números no exploten
       // la barra se cansa mientras la cola la sacude más de lo que aguanta, y se recupera cuando no:
       // si se cansa del todo, la cola se parte
-      const exceso = v.g / aguanta() - 1;
+      // lo que soporta la barra: la sacudida de su vagón, más el tirón de todos los que van detrás
+      const exceso = v.g * (1 + C.tiro * (n - 1 - i)) / aguanta() - 1;
       v.fatiga = Math.max(0, (v.fatiga || 0) + (exceso > 0 ? exceso * C.fatiga : -C.recupera) * dt);
       hx = v.x - fx * C.vagonL / 2; hy = v.y - fy * C.vagonL / 2; // enganche de atrás de este vagón
       pa = v.ang;

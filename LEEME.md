@@ -47,11 +47,13 @@ en una.red, no aquí.
   - **Luces de colores** ($50): desbloquean **De noche**. De noche cobras ×1,5 y todo se oscurece con las luces.
 - **No hay reloj de fiesta y no hay tope de largo.** Mientras más vagones, más se sacude la cola, y el
   gusanito se acaba cuando:
-  - **La cola se parte**: cada barra se cansa cuando la sacudida de la cola pasa de lo que aguanta
-    (`C.aguanta`, más con las barras reforzadas), y se recupera cuando no. Si una se cansa del todo, se
-    suelta todo lo de atrás (con su gente, que se cae) y se acaba. Medido sin paredes con inercia 0,975 y
-    zigzag amplio (0,9 s a cada lado): con 4 vagones no se partió en 25 s; con 6 rozó el límite; con 8 se partió a
-    los 7 s y con 10, a los 4,6 s. Con 10 vagones y zigzag corto y rápido (0,4 s) no se partió.
+  - **La cola se parte**: cada barra soporta la sacudida de su vagón **más el tirón de todos los que van
+    detrás** (`C.tiro`: +14 % por cada vagón de atrás), así que con un gusanito largo las barras de adelante
+    son las que sufren, como en un tren de verdad. Mientras pasa de lo que aguanta (`C.aguanta`, más con las
+    barras reforzadas) se cansa, y se recupera cuando no. **Raspar una pared rápido también la cansa**
+    (`C.raspon`). Si una se cansa del todo, se suelta todo lo de atrás (con su gente) y se acaba. Medido con
+    las velocidades nuevas, sin paredes y zigzag amplio (0,9 s a cada lado): con 5 y 6 vagones no se partió
+    en 25 s; con 8 se partió a los 6,4 s y con 10, a los 4,3 s. Con 10 y zigzag corto (0,4 s), a los 5,4 s.
   - **Te quedan sin vidas** (♥♥♥): tres golpes de frente contra la vereda, los puestos, una valla o la isla de
     un redondel. Cada golpe
     **suelta el último vagón** y le baja la confianza a la fila.
@@ -167,12 +169,13 @@ HUD y las capas. El mapa está en `mapas/pujili.js`.
 - **Al tocar una pared** el gusanito se desliza por ella, pero el rumbo sigue siendo tuyo: la pared solo
   empuja y frena lo que va contra ella. Antes la pared también cambiaba el rumbo hacia su línea, y eso
   dejaba la trompa pegada sin poder girar para salir.
-- **La cola y su fatiga**: cada barra mide la sacudida que le llega (`v.g`, la misma que siente la gente).
-  Mientras pasa de `C.aguanta`, se cansa (`v.fatiga`); cuando llega a 1, `romperSiHaceFalta()` parte la
-  cola y `terminar('partio')` acaba la partida con el pico. `C.inercia` (el impulso que conserva el eje de
-  atrás) es el mando de lo inestable: con los remolques de dos ejes, 0,92 casi no se mece (12 vagones apenas
-  llegan a 820 de sacudida), 0,96 crece poco y 0,985 ya se parte con 8 vagones a los 3,9 s. El valor actual,
-  0,975, deja el peligro entre 6 y 10 vagones. Es el primer número que moveré si quieres más o menos riesgo.
+- **La cola y su fatiga**: cada barra mide la sacudida que le llega (`v.g`, la misma que siente la gente),
+  multiplicada por el tirón de los vagones de atrás. Mientras pasa de `C.aguanta`, se cansa (`v.fatiga`);
+  cuando llega a 1, `romperSiHaceFalta()` parte la cola y `terminar('partio')` acaba la partida con el pico.
+- **Sin latigazo**: los vagones son remolques como los de verdad, así que el meneo **se apaga hacia la cola**
+  en vez de crecer. Antes, con `C.inercia` 0,975 y `C.agarre` 6, un zigzag amplio con 6 vagones sacudía el
+  último el doble que el primero (1146 → 2375). Ahora, con inercia 0,9 y agarre 14, va de 1181 a 894. Si
+  quieres más latigazo, sube `C.inercia` o baja `C.agarre`.
 - **Golpes y confianza**: un golpe fuerte (`estrellar()`) quita una vida, suelta el último vagón y baja la
   confianza. Los golpes de frente cuentan; los roces no. `restarConfianza()` es el único lugar donde se
   decide que la fila se va: si llega a 0, se acaba la partida.
