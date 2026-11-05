@@ -32,8 +32,11 @@ en una.red, no aquí.
 - **Puntos de fiesta ♪**: durante la vuelta hay 3 en la calle, cerca de la estación (`C.fiestas`). Pasar por uno
   les sube 12 % de diversión a todos (`C.fiestaDiv`) y deja $0,10 de propina por pasajero; aparece otro en otra
   parte. Una flechita rosada apunta al más cercano cuando no se ve en la pantalla.
-- **Para cobrar, el grupo tiene que llegar con 75 % de diversión o más.** Si no, **piden devuelto**, llegues
-  a tiempo o no: no pagan y la fila se molesta.
+- **Para cobrar completo, el grupo tiene que llegar con 75 % de diversión o más.** Si no, **pagan a medias**
+  (`C.medias`), llegues a tiempo o no, y la fila se molesta un poco.
+- **El susto se come la diversión**: todo lo que los asusta (latigazos fuertes, golpes, perros, roces) les baja
+  la diversión (`C.sustoDiv`), en la misma barra. Ya no hay «bajaron asustados» aparte: todos pagan según la
+  diversión con que bajan.
 - **Se bajan al final de la vuelta** (en los últimos 12 s, `C.ventana`, o después si llegas tarde), **o antes
   si llegan al 100 %**, en cualquier momento. Si te estacionas antes, te dice cuántos segundos faltan.
 - **Al 100 % ya están contentos**: desde ahí no se aburren (ni al frenar para estacionarte) ni se asustan con el
@@ -73,8 +76,8 @@ en una.red, no aquí.
     solo un poco de velocidad (`C.tope`) y se desliza a lo largo de la pared (sin ir nunca contra tu volante); si
     el roce es fuerte y rápido, asusta un poquito («¡Uy, rozamos!»). Cada golpe
     **suelta el último vagón** y le baja la confianza a la fila.
-  - **Nadie quiere subirse**: la confianza de la fila llega a 0 porque la gente se fue esperando, pidió
-    devuelto o le fue mal en los golpes.
+  - **Nadie quiere subirse**: la confianza de la fila llega a 0 porque la gente se fue esperando, pagó a
+    medias o le fue mal en los golpes.
   - **Sin gasolina ni plata** para tanquear.
 - **Dos récords** (se guardan en el navegador): el **gusanito más largo** (el pico de vagones) y las **más
   vueltas** (viajes a la estación).

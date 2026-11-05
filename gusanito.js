@@ -39,7 +39,9 @@
     ritmoDiv: 0.05,         // qué tan rápido se llena la diversión con meneo fuerte (por segundo): con zigzag perfecto
                             // y combos, 13,7 s hasta el 100 %; sin combos, 27,2 s
     vidas: 3,               // golpes de frente (vereda, puestos, vallas, islas) que aguanta el gusanito
-    minDiv: 0.75,           // diversión mínima del grupo al llegar: si no llega, piden devuelto
+    minDiv: 0.75,           // diversión del grupo al llegar para cobrar completo: si no llega, pagan a medias
+    medias: 0.5,            // cuánto pagan (de lo normal) si no llegaron al mínimo
+    sustoDiv: 0.6,          // cada punto de susto les quita este tanto de diversión
     ventana: 12,            // en los últimos segundos de la vuelta ya se pueden bajar (antes, solo al 100 %)
     tanque: 4,              // km que da un tanque lleno de gasolina
     gasta: 0.08,            // cada vagón de más (desde el tercero) gasta este tanto más; acelerando, × 1,5
@@ -853,7 +855,7 @@
         const p = v.asientos[s];
         if (!p) continue;
         p.t += dt;
-        if (S.listos && !tarde) { p.div = 1; p.miedo = Math.max(0, p.miedo - 0.04 * dt); continue; } // ya ganados
+        if (S.listos && !tarde) { p.div = 1; p.miedo = Math.max(0, p.miedo - 0.04 * dt); p.miedoAnt = p.miedo; continue; } // ya ganados
         if (e > C.divDesde) {
           const tramo = Math.min(e, C.divLleno, d.miedo) - C.divDesde;
           p.div += tramo / (C.divLleno - C.divDesde) * C.ritmoDiv * d.ritmo * extra * extraCombo() * dil * (S.parlante ? 1.25 : 1) * dt;
@@ -861,7 +863,12 @@
         if (tarde) p.div -= 0.05 * dt;          // ya quieren bajarse
         if (e > d.miedo) p.miedo += (e - d.miedo) / 250 * dt;
         else p.miedo -= 0.04 * dt;
-        p.div = clamp(p.div, 0, 1); p.miedo = clamp(p.miedo, 0, 1.2);
+        p.miedo = clamp(p.miedo, 0, 1.2);
+        // el susto se come la diversión: todo lo que subió el miedo desde el cuadro anterior se la baja
+        const susto = p.miedo - (p.miedoAnt ?? p.miedo);
+        if (susto > 0) p.div -= susto * C.sustoDiv;
+        p.miedoAnt = p.miedo;
+        p.div = clamp(p.div, 0, 1);
         if (!p.feliz && p.div >= 1 && p.miedo < 1) {
           p.feliz = true; texto(v.x, v.y - 30, elige(FRASES_DIV), '#F2E14B', 1.3); confeti(v.x, v.y, 18); sonar('feliz');
         }
@@ -944,28 +951,28 @@
   function llegada() {
     limpiarAvisos(); // lo que pasa al llegar reemplaza los avisos de la vuelta
     S.viajeT = 0;
-    // 1 · bajan todos. Si la diversión del grupo llega al 75 % o más, pagan según lo felices que bajaron;
-    //     si no, piden devuelto (llegues a la hora o no)
+    // 1 · bajan todos y todos pagan según lo felices que bajaron (el susto ya les bajó la diversión). Si la
+    //     diversión del grupo no llega al 75 %, pagan a medias (C.medias) y la fila se molesta un poco
     let bajan = 0;
     const subieron = [];
     for (const v of S.vagones) for (let s = 0; s < v.asientos.length; s++) {
       const q = v.asientos[s];
       if (!q) continue;
       v.asientos[s] = null; bajan++;
-      if (q.asustado) { S.asustados++; continue; } // asustados no pagan
+      if (q.asustado) S.asustados++;
       subieron.push(q);
     }
     const n = subieron.length;
     const avg = n ? subieron.reduce((a, q) => a + clamp(q.div, 0, 1), 0) / n : 0;
     const pct = Math.round(avg * 100);
-    const devolver = n > 0 && avg < C.minDiv;
+    const devolver = n > 0 && avg < C.minDiv; // pagan a medias
     let cobro = 0;
-    if (!devolver) for (const q of subieron) {
+    for (const q of subieron) {
       const f = clamp(q.div, 0, 1);
       if (f >= 0.9) S.felices++;
       let pago = 0.25 + 1.0 * f;
       if (f >= 0.9 && q.miedo < 0.3) pago += 0.25; // propina
-      cobro += Math.round(pago * (S.noche ? 1.5 : 1) * 20) / 20;
+      cobro += Math.round(pago * (devolver ? C.medias : 1) * (S.noche ? 1.5 : 1) * 20) / 20;
     }
     if (bajan) {
       S.viajes++;
@@ -974,14 +981,12 @@
       if (cobro > 0) { texto(ESTACION.x, ESTACION.y - 60, '+' + plata(cobro), '#8BD43B', 2); sonar('plata'); }
       if (devolver) {
         S.devueltos += n;
-        anunciar(`Piden devuelto: ${pct} % de diversión (mínimo 75 %)`, '#FF8A7A', 3.5);
-        restarConfianza(n * 6);
+        anunciar(`Pagaron a medias: ${pct} % de diversión · ${plata(cobro)} (con 75 % pagan completo)`, '#FFB3A8', 3.5);
+        restarConfianza(n * 2);
         if (S.fin) return;
-      } else if (cobro > 0) {
+      } else {
         anunciar(`${pct >= 99 ? '¡100 %!' : `¡${pct} %!`} Cobraste ${plata(cobro)}${S.noche ? ' de noche' : ''}`, '#8BD43B', 3);
         S.confianza = Math.min(100, S.confianza + 4);
-      } else {
-        anunciar('Bajaron asustados', '#FFB3A8', 3);
       }
     }
     // 2 · sube la siguiente tanda; con gente arriba se para a decidir antes de salir
@@ -1093,7 +1098,7 @@
     }).join('');
     $('#est-plata').textContent = plata(S.plata);
     const u = S.ultimo;
-    const ultimo = !u ? 'Primera vuelta' : u.devolver ? `Última vuelta: ${u.pct} %, pidieron devuelto` : `Última vuelta: ${u.pct} % · +${plata(u.cobro)}`;
+    const ultimo = !u ? 'Primera vuelta' : u.devolver ? `Última vuelta: ${u.pct} %, pagaron a medias · +${plata(u.cobro)}` : `Última vuelta: ${u.pct} % · +${plata(u.cobro)}`;
     $('#est-resumen').textContent = `${aBordo()} a bordo · fila ${S.est.fila.length} · ${ultimo}`;
     $('#b-vamonos').disabled = S.comb < 0.05 || aBordo() === 0;
     $('#est-vamonos-nota').textContent = S.comb < 0.05 ? 'primero tanquea' : `te quedan ${kmTxt(S.comb)} de gasolina`;
