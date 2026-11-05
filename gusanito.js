@@ -60,7 +60,8 @@
     // mareo: cada giro completo de la cabeza para el mismo lado (en un redondel o donde sea; el zigzag no suma)
     // cuenta. Desde el giro C.mareoDesde se marean: cada giro más les baja C.mareo de diversión, y mientras
     // están mareados ya nada los divierte. Se les pasa si pasan C.mareoOlvida s sin otro giro completo.
-    mareoDesde: 3, mareo: 0.2, mareoOlvida: 10,
+    mareoDesde: 3, mareo: 0.2, mareoOlvida: 5,
+    mareoFuga: 0.6,         // lo girado se olvida a este ritmo (rad/s): las esquinas sueltas de un paseo no marean
   };
 
   // ─── El gusanito crece con la plata, y con cada vagón el juego se pone más bravo ─
@@ -1201,10 +1202,16 @@
   function mareo(dt, giro) {
     if (S.vuelta === null || aBordo() === 0) { S.giros = 0; S.giroAcc = 0; return; }
     S.giroAcc += giro;
+    // lo girado se va olvidando: solo marean las vueltas seguidas (en un redondel o en el sitio), no doblar esquinas
+    S.giroAcc -= Math.sign(S.giroAcc) * Math.min(Math.abs(S.giroAcc), C.mareoFuga * dt);
     S.giroT += dt;
     if (S.giroT >= C.mareoOlvida) { // un buen rato sin dar la vuelta entera: se les pasa
-      if (S.giros >= C.mareoDesde) texto(S.cab.x, S.cab.y - 50, 'Ya se les pasó el mareo', '#fff', 1.6);
-      S.giros = 0; S.giroAcc *= 0.5; S.giroT = 0;
+      if (S.giros >= C.mareoDesde) {
+        // se les pasa: recuperan la mitad de lo que el mareo les quitó
+        for (const v of S.vagones) for (const p of v.asientos) if (p && p.mareo) { p.div = Math.min(1, p.div + p.mareo * 0.5); p.mareo = 0; }
+        texto(S.cab.x, S.cab.y - 50, '¡Ya se les pasó el mareo!', '#C6F08A', 1.6);
+      }
+      S.giros = 0; S.giroAcc = 0; S.giroT = 0;
     }
     if (Math.abs(S.giroAcc) < 2 * Math.PI) return;
     S.giroAcc -= Math.sign(S.giroAcc) * 2 * Math.PI;
@@ -1212,7 +1219,7 @@
     const k = S.cab;
     if (S.giros < C.mareoDesde) { if (S.giros === C.mareoDesde - 1) texto(k.x, k.y - 70, '¡Uy, ya me da vueltas la cabeza!', '#C6F08A', 1.8); return; }
     S.listos = false;
-    for (const v of S.vagones) for (const p of v.asientos) if (p) { p.div = Math.max(0, p.div - C.mareo); if (p.div < 1) p.feliz = false; }
+    for (const v of S.vagones) for (const p of v.asientos) if (p) { const q = Math.min(p.div, C.mareo); p.div -= q; p.mareo = (p.mareo || 0) + q; if (p.div < 1) p.feliz = false; }
     texto(k.x, k.y - 50, elige(['¡Me mareo!', '¡Ya no más vueltas!', '¡Qué mareo!', '¡Bájenme!']), '#C6F08A', 1.8);
     if (S.giros === C.mareoDesde) anunciar('¡Se marean! Deja de dar vueltas un rato', '#C6F08A', 3, true);
     sonar('tarde');

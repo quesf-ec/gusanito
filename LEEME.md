@@ -19,7 +19,9 @@ en una.red, no aquí.
   (`C.mareoDesde`): cuenta todo lo que gira la cabeza para el mismo lado, en un redondel o en cualquier parte
   (el zigzag no suma, porque va para los dos lados). Desde el tercer giro, cada giro más les baja 20 % de
   diversión (`C.mareo`), el redondel no da bono, pierden el 100 % y **mientras están mareados nada los divierte**.
-  Se les pasa si están 10 s sin dar otro giro completo (`C.mareoOlvida`). Entre más gente a
+  Lo girado se va olvidando (`C.mareoFuga`, 0,6 rad/s), así que doblar esquinas en un paseo no marea: solo
+  las vueltas seguidas, en un redondel o en el sitio. Se les pasa a los 5 s sin otro giro completo
+  (`C.mareoOlvida`), y entonces recuperan la mitad de lo que el mareo les quitó y vuelven a divertirse. Entre más gente a
   bordo, más cuesta divertirlos: cada pasajero por encima de 4 resta un 8 % de velocidad, hasta un 60 % menos.
 - **Combo de zigzag**: cada cambio de lado con buen meneo, si llega antes de 1,8 s del anterior
   (`C.comboVentana`), sube el combo («¡Combo ×3!», con un sonido que sube de tono). Cada nivel hace que se
