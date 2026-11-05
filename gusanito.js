@@ -45,6 +45,7 @@
     gasta: 0.08,            // cada vagón de más (desde el tercero) gasta este tanto más; acelerando, × 1,5
     reserva: 60,            // sin gasolina, el gusanito se arrastra a esta velocidad (px/s) hasta la estación
     deFrente: 0.8,
+    tope: 0.12,             // cuánto frena rozar una pared (por paso, × lo de frente al cuadrado): suave
     // combo de zigzag: cada cambio de lado con buen meneo, antes de C.comboVentana s, suma; cada nivel de combo
     // multiplica lo que se divierten (+C.comboExtra, hasta C.comboMax niveles)
     comboVentana: 1.8, comboExtra: 0.2, comboMax: 6,
@@ -697,10 +698,14 @@
       const umbral = 70 + 160 * S.dif.asist; // con ayuda, hay que ir más rápido para que cuente
       if (deFrente >= C.deFrente && fuerza > umbral && k.enfriar <= 0) { estrellar(fuerza, frente.x, frente.y); k.v *= 0.2; }
       else {
-        k.v *= 1 - 0.4 * deFrente;
-        if (k.v > 120 && deFrente > 0.25 && k.enfriar <= 0) { // roce: polvo y un susto chiquito
-          k.enfriar = 0.6; polvo(frente.x, frente.y, 6);
-          for (const v of S.vagones) for (const p of v.asientos) if (p) p.miedo += 0.04;
+        // tope suave: pierde solo un poco de lo que va contra la pared y se desliza a lo largo de ella
+        k.v *= 1 - C.tope * deFrente * deFrente;
+        const tx = -golpe.ny, ty = golpe.nx, sg = tx * dx + ty * dy >= 0 ? 1 : -1; // a lo largo de la pared, para donde iba
+        const desvio = vuelta(Math.atan2(ty * sg, tx * sg) - k.ang);
+        if (!meta || Math.sign(meta) === Math.sign(desvio)) k.ang += desvio * Math.min(1, 5 * dt) * deFrente; // nunca contra tu volante
+        if (k.v > 170 && deFrente > 0.5 && k.enfriar <= 0) { // roce fuerte: polvo y un susto chiquito
+          k.enfriar = 0.8; polvo(frente.x, frente.y, 4);
+          for (const v of S.vagones) for (const p of v.asientos) if (p) p.miedo += 0.02;
           texto(frente.x, frente.y - 20, '¡Uy, rozamos!', '#fff', 0.9);
         }
       }
@@ -799,7 +804,7 @@
         const l = Math.hypot(v.rx - v.fx, v.ry - v.fy) || 1;
         v.rx = v.fx + (v.rx - v.fx) / l * wb; v.ry = v.fy + (v.ry - v.fy) / l * wb;
         cx = (v.fx + v.rx) / 2; cy = (v.fy + v.ry) / 2;
-        if (v.golpe <= 0 && Math.hypot(v.vx, v.vy) > 120) { v.golpe = 0.6; polvo(cx, cy, 5); v.fatiga = (v.fatiga || 0) + C.raspon; for (const p of v.asientos) if (p) p.miedo += 0.08 * (1 - 0.8 * S.dif.asist); }
+        if (v.golpe <= 0 && Math.hypot(v.vx, v.vy) > 120) { v.golpe = 0.6; polvo(cx, cy, 5); v.fatiga = (v.fatiga || 0) + C.raspon; for (const p of v.asientos) if (p) p.miedo += 0.04 * (1 - 0.8 * S.dif.asist); }
       }
       v.golpe -= dt;
       v.x = cx; v.y = cy;

@@ -69,8 +69,9 @@ en una.red, no aquí.
     las velocidades nuevas, sin paredes y zigzag amplio (0,9 s a cada lado): con 5 y 6 vagones no se partió
     en 25 s; con 8 se partió a los 6,4 s y con 10, a los 4,3 s. Con 10 y zigzag corto (0,4 s), a los 5,4 s.
   - **Te quedan sin vidas** (♥♥♥): tres golpes **de frente** (casi derecho contra la pared, `C.deFrente`) y
-    rápidos contra la vereda, los puestos, una valla o la isla de un redondel. Los roces de costado solo frenan un
-    poco y asustan un poquito («¡Uy, rozamos!»). Cada golpe
+    rápidos contra la vereda, los puestos, una valla o la isla de un redondel. Los roces son suaves: el gusanito pierde
+    solo un poco de velocidad (`C.tope`) y se desliza a lo largo de la pared (sin ir nunca contra tu volante); si
+    el roce es fuerte y rápido, asusta un poquito («¡Uy, rozamos!»). Cada golpe
     **suelta el último vagón** y le baja la confianza a la fila.
   - **Nadie quiere subirse**: la confianza de la fila llega a 0 porque la gente se fue esperando, pidió
     devuelto o le fue mal en los golpes.
