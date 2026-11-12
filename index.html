@@ -20,7 +20,7 @@
 html,body{height:100%}
 body{margin:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;background:#2A1B3D}
 .escena{position:fixed;inset:0}
-#pueblo{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#pueblo,#pueblo3d{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .hud-juego{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;gap:6px;
   padding:max(var(--mal-e2), env(safe-area-inset-top)) max(var(--mal-e3), env(safe-area-inset-right))
           max(var(--mal-e2), env(safe-area-inset-bottom)) max(var(--mal-e3), env(safe-area-inset-left));
@@ -208,6 +208,7 @@ body{background:#8CC85E}
 </head>
 <body>
 <main class="escena">
+  <canvas id="pueblo3d" aria-hidden="true"></canvas>
   <canvas id="pueblo" role="img" aria-label="Pujilí en fiestas visto desde arriba: sus calles de verdad con banderines, redondeles con flores, el Parque Central con su kiosco y la estación, la Iglesia Matriz, los mercados con la feria, y el gusanito de colores con sus vagones llenos de gente"></canvas>
 
   <div class="hud-juego">
@@ -316,6 +317,8 @@ body{background:#8CC85E}
 
 <script src="https://franciscombp.github.io/ds/mal/mal.js?v=1.0.22" defer></script>
 <script src="mapas/pujili.js?v=1"></script>
-<script src="gusanito.js?v=27"></script>
+<script src="gusanito.js?v=28"></script>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+<script type="module" src="render3d.js?v=1"></script>
 </body>
 </html>

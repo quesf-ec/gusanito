@@ -178,6 +178,21 @@ Juegos con mecánicas parecidas que sirvieron de referencia. Lo que tomamos y lo
 - **Crazy Taxi** (pagar según el tiempo y los trayectos): no confirmé en las fuentes que la propina baje con
   el tiempo, así que no lo usamos. Referencia general: [Crazy Taxi en Wikipedia](https://en.wikipedia.org/wiki/Crazy_Taxi).
 
+## En 3D
+
+El pueblo se dibuja en **3D de verdad** con three.js (`render3d.js`, la librería en `vendor/`): cámara en
+perspectiva detrás y arriba del gusanito, sol de tarde con sombras suaves, niebla a lo lejos y tonos de cine
+(ACES). Las casas tienen paredes, zócalo, techo de teja a dos aguas con alero y ventanas que de noche se
+encienden; la Matriz tiene su torre; los árboles, los redondeles con su monumento, el kiosco, los puestos, las
+vallas y los banderines son objetos con volumen. El gusanito es de «fibra de vidrio» brillante, con ojos,
+antenas, toldos de rayas translúcidos y la gente sentada, que salta con el meneo. De noche hay luz de luna,
+faros y ventanas encendidas.
+
+`gusanito.js` sigue llevando toda la lógica y deja los datos en `window.gusanitoMundo`; `render3d.js` solo
+dibuja. El lienzo 2D queda encima para los textos, el medidor, las flechas, las chispas y las monedas. **Si no
+hay WebGL o el archivo no carga, el juego se dibuja en 2D** como antes (lo que describe la sección siguiente).
+En 3D todavía no se ven las huellas de llanta, las flores ni las sombras de nubes.
+
 ## La estética
 
 Un pueblo de juguete: colores pastel, todo redondito y con volumen. Las casas, las iglesias y los árboles

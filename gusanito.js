@@ -451,6 +451,11 @@
     banderines.push({ x1: m.x - nx * l, y1: m.y - ny * l, x2: m.x + nx * l + m.ux * sesgo, y2: m.y + ny * l + m.uy * sesgo });
   }
 
+  // Los datos del pueblo para el dibujo en 3D (render3d.js). Si no carga o no hay WebGL, se dibuja en 2D.
+  window.gusanitoMundo = { E, C, vista: MAPA.vista, tramos, vistas, redondeles, casas, edificios, parque, verdes, puestos, vallas, ESTACION, banderines, enTramo,
+    arboles: VOLUMENES.filter((o) => o.arbol) };
+  const usa3d = () => !!(window.G3D && window.G3D.listo);
+
   // ─── Estado ────────────────────────────────────────────────────────
   let S; // estado de la vuelta
   const entrada = { izq: false, der: false, freno: false, turbo: false }; // lo que usa el chofer; se arma cada cuadro
@@ -1480,6 +1485,7 @@
   let PIVOTE = 0.64, piv = 0.64; // piv se acerca a PIVOTE (o más arriba, si estás en la estación)
   let camRot = 0;
   function aPantalla(x, y) {
+    if (usa3d()) return window.G3D.aPantalla(x, y);
     const dx = (x - S.cam.x) * zoom, dy = (y - S.cam.y) * zoom;
     const c = Math.cos(camRot), s = Math.sin(camRot);
     return { x: W / 2 + dx * c - dy * s, y: H * piv + dx * s + dy * c };
@@ -1500,8 +1506,9 @@
     let sx = 0, sy = 0;
     if (k.golpe > 0 && !quieto) { sx = azar(-6, 6) * k.golpe; sy = azar(-6, 6) * k.golpe; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#8CC85E'; // patios y huertas: el pasto de atrás de las casas
-    ctx.fillRect(0, 0, W, H);
+    const en3d = usa3d();
+    if (en3d) ctx.clearRect(0, 0, W, H); // el pueblo va en el lienzo 3D de atrás; este queda para lo que va encima
+    else { ctx.fillStyle = '#8CC85E'; ctx.fillRect(0, 0, W, H); } // patios y huertas: el pasto de atrás de las casas
     piv += ((S.decidiendo ? 0.3 : PIVOTE) - piv) * Math.min(1, dt * 4);
     ctx.translate(W / 2 + sx, H * piv + sy);
     ctx.rotate(camRot);
@@ -1512,6 +1519,16 @@
     const ve = (x, y, w, h) => x + w > S.cam.x - R && x < S.cam.x + R && y + h > S.cam.y - R && y < S.cam.y + R;
 
     const veC = (c) => ve(c.x, c.y, c.w, c.h);
+    if (en3d) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      window.G3D.render({ S, W, H, dpr, dt, cierres, rapidez: quieto ? 0 : rapidez, sx, sy, quieto });
+      piv = clamp(aPantalla(k.x, k.y).y / H, 0.15, 0.85); // el medidor y las flechas van donde quedó la cabeza
+      for (const c of S.chispas) { // chispas y confeti, encima
+        const q = aPantalla(c.x, c.y);
+        ctx.globalAlpha = 1 - c.vida / c.dur; ctx.fillStyle = c.c; ctx.beginPath(); ctx.arc(q.x, q.y, c.r * 0.8, 0, 7); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    } else {
     // lo alto se corre hacia arriba de la pantalla: en el mundo, hacia donde mira la cámara
     AX = Math.cos(S.cam.ang) * C.inclina; AY = Math.sin(S.cam.ang) * C.inclina;
 
@@ -1612,9 +1629,10 @@
     for (const c of S.chispas) { ctx.globalAlpha = 1 - c.vida / c.dur; ctx.fillStyle = c.c; ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 7); ctx.fill(); }
     ctx.globalAlpha = 1;
 
+    }
     // textos derechos en la pantalla, aunque el pueblo esté girado
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (S.noche) { // de noche todo se oscurece y las luces de colores alumbran
+    if (S.noche && !en3d) { // de noche todo se oscurece y las luces de colores alumbran
       ctx.fillStyle = 'rgba(8,8,40,.52)'; ctx.fillRect(0, 0, W, H);
       ctx.globalCompositeOperation = 'lighter';
       const luz = (x, y, r, c) => { const q = aPantalla(x, y), g = ctx.createRadialGradient(q.x, q.y, 2, q.x, q.y, r * zoom); g.addColorStop(0, c); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(q.x - r * zoom, q.y - r * zoom, 2 * r * zoom, 2 * r * zoom); };
