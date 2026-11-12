@@ -452,7 +452,7 @@
   }
 
   // Los datos del pueblo para el dibujo en 3D (render3d.js). Si no carga o no hay WebGL, se dibuja en 2D.
-  window.gusanitoMundo = { E, C, vista: MAPA.vista, tramos, vistas, redondeles, casas, edificios, parque, verdes, puestos, vallas, ESTACION, banderines, enTramo,
+  window.gusanitoMundo = { E, C, vista: MAPA.vista, radio: MAPA.radio * E, tramos, vistas, redondeles, casas, edificios, parque, verdes, puestos, vallas, ESTACION, banderines, enTramo,
     arboles: VOLUMENES.filter((o) => o.arbol) };
   const usa3d = () => !!(window.G3D && window.G3D.listo);
 

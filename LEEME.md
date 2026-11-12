@@ -188,6 +188,12 @@ vallas y los banderines son objetos con volumen. El gusanito es de «fibra de vi
 antenas, toldos de rayas translúcidos y la gente sentada, que salta con el meneo. De noche hay luz de luna,
 faros y ventanas encendidas.
 
+El estilo es **redondeado y blando, como de arcilla o vinilo**, no de plástico: casas con esquinas redondas,
+techos abombados y ventanas con marco blanco, en pasteles (crema, rosa, celeste, menta) con techos coral,
+naranja, celeste y menta; árboles de bolas suaves; calles gris azulado claro con veredas casi blancas; el
+gusanito mate con un velo claro en los bordes (`sheen`) y toldos de almohadón; luz pareja con sombras suaves y
+tonos neutros para no apagar los colores.
+
 `gusanito.js` sigue llevando toda la lógica y deja los datos en `window.gusanitoMundo`; `render3d.js` solo
 dibuja. El lienzo 2D queda encima para los textos, el medidor, las flechas, las chispas y las monedas. **Si no
 hay WebGL o el archivo no carga, el juego se dibuja en 2D** como antes (lo que describe la sección siguiente).
