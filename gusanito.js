@@ -47,6 +47,7 @@
     gasta: 0.08,            // cada vagón de más (desde el tercero) gasta este tanto más; acelerando, × 1,5
     reserva: 60,            // sin gasolina, el gusanito se arrastra a esta velocidad (px/s) hasta la estación
     deFrente: 0.8,
+    arrastre: 0.06,         // girar fuerte le quita velocidad (las llantas arrastran): por rad/s de giro, por segundo
     tope: 0.12,             // cuánto frena rozar una pared (por paso, × lo de frente al cuadrado): suave
     // combo de zigzag: cada cambio de lado con buen meneo, antes de C.comboVentana s, suma; cada nivel de combo
     // multiplica lo que se divierten (+C.comboExtra, hasta C.comboMax niveles)
@@ -396,6 +397,14 @@
     }
   }
 
+  // Flores sueltas en el pasto de los patios
+  const flores = [];
+  for (let n = 0; n < 2200; n++) {
+    const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * MAPA.vista * E, x = Math.cos(a) * d, y = Math.sin(a) * d;
+    if (ocupado.has(llaveO(x, y)) || enCalle(x, y, 26)) continue;
+    flores.push({ x, y, c: ['#FFFFFF', '#FFE36E', '#FF9EC4', '#FFB26B'][(rnd() * 4) | 0], n: 2 + ((rnd() * 3) | 0) });
+  }
+
   // ─── Volumen: las casas y los árboles tienen altura ─
   // La vista es desde arriba y un poco inclinada: lo alto se corre hacia arriba de la pantalla (AX, AY, que
   // cambian con la cámara). Las sombras caen siempre para el mismo lado del mundo (SOMBRA) y la luz viene del otro.
@@ -661,7 +670,8 @@
     // destrabar: si quedó apretado contra una pared, da marcha atrás con el volante al revés y sale girando
     if (k.maniobra > 0) { k.maniobra -= dt; meta = -k.mLado; if (k.maniobra <= 0) k.saliendo = 0.6; }
     else if (k.saliendo > 0) { k.saliendo -= dt; if (!meta) meta = k.mLado; }
-    k.giro += (meta - k.giro) * Math.min(1, C.giroSuave * dt);
+    // el volante pesa más mientras más rápido va
+    k.giro += (meta - k.giro) * Math.min(1, C.giroSuave / (1 + Math.abs(k.v) / 500) * dt);
     const turbo = S.turbo.activo;
     let vMax = S.dif.vMax * (turbo ? C.turbo : 1);
     // con ayuda, afloja al acercarse a la estación (para que sea fácil parar ahí)
@@ -675,12 +685,15 @@
     if (k.maniobra > 0) k.v = Math.max(-C.reversa * 1.8, k.v - C.acel * 1.5 * dt);
     else if (entrada.freno && !subiendo && k.v <= 2) k.v = Math.max(-C.reversa, k.v - C.acel * 0.6 * dt); // parado y frenando: reversa
     else if (entrada.freno || subiendo) k.v = Math.max(0, k.v - C.freno * dt);
-    else if (k.v < vMax) k.v = Math.min(vMax, k.v + C.acel * (turbo ? C.turboAcel : 1) * dt * (k.v < 0 ? 3 : 1));
+    // arranca con fuerza y le cuesta más cerca de su velocidad máxima, como un motor de verdad
+    else if (k.v < vMax) k.v = Math.min(vMax, k.v + C.acel * (turbo ? C.turboAcel : 1) * dt * (k.v < 0 ? 3 : 1 - 0.55 * (k.v / vMax) ** 2));
     else k.v = Math.max(vMax, k.v - C.freno * 0.3 * dt);
     // el volante siempre responde: parado también se puede girar (a menos velocidad)
     let w = k.v * Math.tan(k.giro * C.volanteMax) / C.ejes; // radio mínimo: ejes / tan(volante)
     const wMax = C.agarreCab / Math.max(Math.abs(k.v), 1);  // a mucha velocidad, lo que aguantan las llantas
-    k.ang += clamp(w, -wMax, wMax) * dt;
+    w = clamp(w, -wMax, wMax);
+    k.ang += w * dt;
+    if (k.v > 0) k.v -= Math.abs(w) * k.v * C.arrastre * dt; // en las curvas pierde un poco
     ayudar(k, meta, dt);
     const dx = Math.cos(k.ang), dy = Math.sin(k.ang);
     k.x += dx * k.v * dt; k.y += dy * k.v * dt;
@@ -1505,6 +1518,11 @@
     // el suelo: verdes y el parque
     for (const v of verdes) if (veC(v.caja)) verde(v);
     if (veC(parque.caja)) parqueDibujo();
+    for (const fl of flores) {
+      if (!ve(fl.x - 12, fl.y - 12, 24, 24)) continue;
+      ctx.fillStyle = fl.c;
+      for (let n = 0; n < fl.n; n++) { ctx.beginPath(); ctx.arc(fl.x + ((n * 37) % 19) - 9, fl.y + ((n * 53) % 17) - 8, 3.2, 0, 7); ctx.fill(); }
+    }
     // calles: primero el bordillo y la vereda, encima la calzada y la línea del centro (las de afuera del radio de juego también)
     const lineas = [];
     for (const t of tramos) if (veC(t.caja)) lineas.push(t);
@@ -1523,6 +1541,8 @@
     ctx.strokeStyle = '#8D8985'; ctx.fillStyle = '#8D8985';
     for (const l of lineas) { ctx.lineWidth = 2 * l.hw; trazo(l); }
     for (const r of rs) { ctx.beginPath(); ctx.arc(r.x, r.y, r.R, 0, 7); ctx.fill(); }
+    ctx.strokeStyle = '#97938F'; // el centro de la calzada, un poco más claro
+    for (const l of lineas) { ctx.lineWidth = Math.max(10, 2 * l.hw - 40); trazo(l); }
     ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 4; ctx.setLineDash([26, 26]); ctx.lineCap = 'butt';
     for (const l of lineas) trazo(l);
     ctx.setLineDash([]);
@@ -1575,6 +1595,16 @@
     // volando por el aire
     for (const f of S.volando) if (f.z > 0) persona(f.x, f.y - f.z * 0.6, f.p, 1 + f.z / 200, f.t * f.giro, false);
 
+    // sombras de nubes que pasan despacio
+    {
+      const t = quieto ? 0 : performance.now() / 1000, tramo = 3200, mod = (v) => ((v % tramo) + tramo) % tramo;
+      ctx.fillStyle = 'rgba(40,60,80,.07)';
+      for (let i = 0; i < 5; i++) {
+        const x = S.cam.x + mod(i * 1370 + t * 22 - S.cam.x + tramo / 2) - tramo / 2;
+        const y = S.cam.y + mod(i * 2110 + t * 9 - S.cam.y + tramo / 2) - tramo / 2;
+        ctx.beginPath(); ctx.ellipse(x, y, 420 + i * 40, 250 + i * 25, 0.5, 0, 7); ctx.ellipse(x + 300, y + 120, 300, 190, 0.5, 0, 7); ctx.fill();
+      }
+    }
     // banderines encima de todo
     for (const b of banderines) if (ve(Math.min(b.x1, b.x2) - 20, Math.min(b.y1, b.y2) - 20, Math.abs(b.x2 - b.x1) + 40, Math.abs(b.y2 - b.y1) + 40)) banderin(b);
 
@@ -1589,6 +1619,7 @@
       ctx.globalCompositeOperation = 'lighter';
       const luz = (x, y, r, c) => { const q = aPantalla(x, y), g = ctx.createRadialGradient(q.x, q.y, 2, q.x, q.y, r * zoom); g.addColorStop(0, c); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(q.x - r * zoom, q.y - r * zoom, 2 * r * zoom, 2 * r * zoom); };
       luz(k.x, k.y, 110, 'rgba(255,220,120,.55)');
+      luz(k.x + Math.cos(k.ang) * 150, k.y + Math.sin(k.ang) * 150, 170, 'rgba(255,240,190,.45)'); // faros
       for (const v of S.vagones) luz(v.x, v.y, 80, 'rgba(255,120,200,.4)');
       luz(ESTACION.x, ESTACION.y, 170, 'rgba(255,230,140,.4)');
       for (const q of redondeles) luz(q.x, q.y, 90, 'rgba(120,220,255,.35)');
@@ -1680,7 +1711,8 @@
   }
   // árbol: tronco y copa redonda, con brillo del lado de la luz
   function arbol3d(a) {
-    const ox = AX * a.alto, oy = AY * a.alto;
+    const mece = quieto ? 0 : Math.sin(performance.now() / 900 + a.x * 0.013) * 2.5;
+    const ox = AX * a.alto + mece, oy = AY * a.alto + mece * 0.6;
     ctx.strokeStyle = '#8A5A3B'; ctx.lineWidth = 7; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x + ox * 0.6, a.y + oy * 0.6); ctx.stroke();
     ctx.fillStyle = a.c1; ctx.beginPath(); ctx.arc(a.x + ox, a.y + oy, a.r, 0, 7); ctx.fill();
@@ -1943,6 +1975,7 @@
     ctx.translate(0, ladeo * 3);
     ctx.fillStyle = v.pal.borde; rr(-l / 2, -a / 2, l, a, a / 2.4); ctx.fill();
     ctx.fillStyle = v.pal.cuerpo; rr(-l / 2 + 3, -a / 2 + 3, l - 6, a - 6, a / 2.8); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.24)'; rr(-l / 2 + 9, -a / 2 + 5, l - 18, 7, 4); ctx.fill(); // brillo
     // lunares
     ctx.fillStyle = 'rgba(255,255,255,.45)';
     for (const [px, py] of [[-18, -14], [14, 15], [20, -12], [-10, 16]]) { ctx.beginPath(); ctx.arc(px, py, 2.5, 0, 7); ctx.fill(); }
@@ -2008,9 +2041,11 @@
     carroceria(l, a, a / 2, '#E8458B');
     ctx.restore();
     ctx.save(); ctx.translate(k.x + AX * 12, k.y + AY * 12); ctx.rotate(k.ang);
+    ctx.translate(0, -k.giro * clamp(k.v / 250, 0, 1) * 3); // se ladea hacia afuera de la curva
     // cuerpo: escarabajo verde limón con franja fucsia
     ctx.fillStyle = '#E8458B'; rr(-l / 2, -a / 2, l, a, a / 2); ctx.fill();
     ctx.fillStyle = '#8BD43B'; rr(-l / 2 + 3, -a / 2 + 3, l - 6, a - 6, a / 2.3); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.26)'; rr(-l / 2 + 10, -a / 2 + 5, l - 22, 7, 4); ctx.fill(); // brillo
     // flores y estrellas pintadas
     ctx.fillStyle = '#F2E14B';
     for (const [px, py] of [[-26, -13], [-20, 12]]) estrella(px, py, 4);

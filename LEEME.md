@@ -195,6 +195,12 @@ De OpenStreetMap quedan solo las iglesias y los edificios grandes con nombre (co
 achicados hasta que no toquen las calles, que en el juego son más anchas que las reales. Las casas comunes
 las pone el juego a lo largo de cada calle.
 
+Más detalles del pueblo: flores en el pasto, la calzada en dos tonos, sombras de nubes que pasan despacio,
+árboles que se mecen, brillo en la carrocería, la cabeza que se ladea en las curvas y faros de noche.
+
+**Con más peso al manejar**: el volante responde más lento mientras más rápido va, el motor empuja fuerte al
+arrancar y menos cerca de la velocidad máxima, y girar fuerte quita un poco de velocidad (`C.arrastre`).
+
 ### El pulido
 
 Detalles para que todo responda: los golpes congelan un instante la pantalla y vibran en el celular; al cobrar
