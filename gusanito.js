@@ -1644,7 +1644,7 @@
       ctx.globalCompositeOperation = 'source-over';
     }
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const fuente = Math.round(clamp(22 * zoom, 16, 28));
+    const fuente = Math.round(clamp(26 * zoom, 21, 32));
     ctx.font = `900 ${fuente}px Fredoka, Montserrat, "Arial Black", sans-serif`;
     // de regreso, la estación dice dónde parar
     if (S.vuelta !== null && S.vuelta <= 12 && S.est.carga >= 0) {
@@ -1655,10 +1655,10 @@
     // nombres de los lugares y de las calles, derechos en la pantalla
     const cerca = (o) => Math.abs(o.x - S.cam.x) < R && Math.abs(o.y - S.cam.y) < R;
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(30,15,40,.5)'; ctx.fillStyle = 'rgba(255,255,255,.8)';
-    ctx.font = '700 12px Fredoka, Montserrat, sans-serif';
+    ctx.font = '700 15px Fredoka, Montserrat, sans-serif';
     for (const l of letreros) if (cerca(l)) { const q = aPantalla(l.x, l.y); ctx.strokeText(l.t, q.x, q.y); ctx.fillText(l.t, q.x, q.y); }
     ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(30,15,40,.6)'; ctx.fillStyle = '#F6EBD3';
-    ctx.font = `900 ${Math.round(clamp(18 * zoom, 14, 22))}px Fredoka, Montserrat, sans-serif`;
+    ctx.font = `900 ${Math.round(clamp(21 * zoom, 18, 26))}px Fredoka, Montserrat, sans-serif`;
     for (const l of rotulos) if (cerca(l)) { const q = aPantalla(l.x, l.y); ctx.strokeText(l.t.toUpperCase(), q.x, q.y); ctx.fillText(l.t.toUpperCase(), q.x, q.y); }
     ctx.font = `900 ${fuente}px Fredoka, Montserrat, "Arial Black", sans-serif`;
     const lugares = []; // para que dos textos no caigan uno encima del otro
@@ -2129,7 +2129,7 @@
       ctx.fillStyle = '#FFF6E3'; ctx.beginPath(); ctx.arc(0, 0, 21, 0, 7); ctx.fill();
       ctx.strokeStyle = '#E8CF9C'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 19, 0, 7); ctx.stroke();
       ctx.strokeStyle = '#F36B3B'; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(0, 0, 19, -Math.PI / 2, -Math.PI / 2 + resto * Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = '#E2573E'; ctx.font = '700 17px Fredoka, Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#E2573E'; ctx.font = '700 19px Fredoka, Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('×' + S.combo, 0, 1);
       ctx.restore();
     }
@@ -2190,7 +2190,7 @@
     if (S.vuelta === null || S.fin || S.decidiendo) return;
     const avg = diversion();
     if (avg === null) return;
-    const x = W / 2 + Math.max(58, 70 * zoom), alto = 104, ancho = 12, top = H * piv - alto / 2;
+    const x = W / 2 + Math.max(58, 70 * zoom), alto = 120, ancho = 16, top = H * piv - alto / 2;
     const col = avg >= 0.995 ? '#F2E14B' : avg >= C.minDiv ? '#8BD43B' : '#F2B33D';
     ctx.fillStyle = 'rgba(122,82,40,.35)'; rr(x - 11, top - 28, ancho + 22, alto + 56, 12); ctx.fill(); // sombra abajo
     ctx.fillStyle = '#FFF6E3'; rr(x - 11, top - 32, ancho + 22, alto + 56, 12); ctx.fill();
@@ -2205,7 +2205,7 @@
     ctx.fillStyle = '#24150F'; ctx.beginPath(); ctx.arc(fx - 3.5, fy - 2.5, 1.6, 0, 7); ctx.arc(fx + 3.5, fy - 2.5, 1.6, 0, 7); ctx.fill();
     ctx.strokeStyle = '#24150F'; ctx.lineWidth = 1.8; ctx.beginPath();
     ctx.moveTo(fx - 5, fy + 3); ctx.quadraticCurveTo(fx, fy + 3 + (avg - 0.5) * 9, fx + 5, fy + 3); ctx.stroke();
-    ctx.font = '700 13px Fredoka, Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#5A3B22';
+    ctx.font = '700 16px Fredoka, Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#5A3B22';
     ctx.fillText(Math.round(avg * 100) + '%', fx, top + alto + 13);
   }
 
@@ -2273,7 +2273,7 @@
     ctx.fillStyle = urge && S.vuelta < 0 ? '#FF8A7A' : '#F2E14B'; ctx.strokeStyle = '#24150F'; ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-8, -12); ctx.lineTo(-3, 0); ctx.lineTo(-8, 12); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.restore();
-    ctx.font = '800 11px Fredoka, Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '700 15px Fredoka, Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(30,15,40,.8)'; ctx.fillStyle = '#fff';
     const lx = cx + Math.cos(b) * (r + 30), ly = cy + Math.sin(b) * (r + 30);
     ctx.strokeText('Estación', lx, ly); ctx.fillText('Estación', lx, ly);

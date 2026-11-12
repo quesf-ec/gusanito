@@ -190,6 +190,43 @@ body{background:#8CC85E}
 .mas{font-size:.9rem}
 .mas summary{cursor:pointer;text-align:center;font-weight:600;color:var(--cafe2);padding:4px}
 .mas[open] summary{margin-bottom:10px}
+/* ─── Letras grandes: es un juego de celular, se lee de un vistazo ─── */
+.barra{padding:7px 10px;gap:8px}
+.barra__botones .btn--icono{width:44px;height:44px}
+.objetivo{font-size:clamp(1.05rem,.9rem + 1vw,1.3rem);padding:6px 14px;font-weight:700}
+.reloj{height:8px;border-radius:4px;width:min(60vw,320px)}
+.barra__plata{font-size:clamp(1.3rem,1.1rem + 1vw,1.6rem);padding:3px 12px}
+.fichas{gap:8px}
+.ficha-dato{font-size:1.05rem;padding:4px 12px;gap:6px}
+.aviso{font-size:clamp(1.1rem,1rem + .6vw,1.35rem);padding:6px 14px}
+.aviso--chico{font-size:1.02rem}
+.mando--freno,.mando--turbo{height:62px;width:clamp(130px,38vw,170px);font-size:1.15rem!important}
+.teclas{font-size:.95rem;padding:4px 14px}
+.hoja{gap:12px;max-height:68dvh}
+.hoja__titulo{font-size:1.3rem}
+.hoja__resumen{font-size:1rem}
+.hoja__plata small{font-size:.75rem}
+.hoja__plata b{font-size:1.7rem}
+.tienda{grid-auto-columns:minmax(170px,46%)}
+.oferta__ico{font-size:1.9rem}
+.oferta__nombre{font-size:1.08rem}
+.oferta__nota{font-size:.92rem}
+.oferta__precio{font-size:1.02rem;padding:3px 12px}
+.vamonos{font-size:1.6rem;padding:14px}
+.vamonos small{font-size:.95rem}
+.claves li{font-size:1.08rem}
+.capa__panel .btn{font-size:1.15rem;min-height:52px}
+.capa__panel .btn--rojo{font-size:1.4rem;min-height:60px}
+.resumen{font-size:1.05rem}
+.mas{font-size:1rem}
+@media (hover:hover) and (pointer:fine){ .mando--turbo{width:140px;height:46px;font-size:.95rem!important} }
+/* en pantallas angostas el objetivo va en su propia fila, entero */
+@media (max-width:560px){
+  .barra{grid-template-columns:auto 1fr auto;grid-template-areas:"b . p" "c c c";border-radius:26px;row-gap:6px}
+  .barra__botones{grid-area:b}.barra__plata{grid-area:p}.barra__centro{grid-area:c}
+  .objetivo{white-space:normal;line-height:1.2}
+  .reloj{width:100%}
+}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 <script type="application/ld+json">
@@ -317,7 +354,7 @@ body{background:#8CC85E}
 
 <script src="https://franciscombp.github.io/ds/mal/mal.js?v=1.0.22" defer></script>
 <script src="mapas/pujili.js?v=1"></script>
-<script src="gusanito.js?v=29"></script>
+<script src="gusanito.js?v=30"></script>
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 <script type="module" src="render3d.js?v=2"></script>
 </body>
