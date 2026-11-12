@@ -3,6 +3,7 @@
    El mundo del juego es plano (x, y en px): en 3D es (x, altura, y). Si no hay WebGL, G3D.listo queda en
    falso y el juego se dibuja en 2D como antes. */
 import * as T from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const M = window.gusanitoMundo;
 const G3D = (window.G3D = { listo: false });
@@ -16,16 +17,24 @@ class Malla {
     const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
     let x = uy * vz - uz * vy, y = uz * vx - ux * vz, z = ux * vy - uy * vx;
     const l = Math.hypot(x, y, z) || 1; x /= l; y /= l; z /= l;
+    let [ca, cb, cc] = Array.isArray(color) ? color : [color, color, color]; // un color, o uno por vértice (degradado)
     if (!na) na = nb = nc = [x, y, z];
-    else if (x * na[0] + y * na[1] + z * na[2] < 0) { [b, c] = [c, b]; [nb, nc] = [nc, nb]; } // que la cara mire hacia su normal
-    for (const [v, n] of [[a, na], [b, nb], [c, nc]]) { this.p.push(v[0], v[1], v[2]); this.n.push(n[0], n[1], n[2]); this.c.push(color.r, color.g, color.b); }
+    else if (x * na[0] + y * na[1] + z * na[2] < 0) { [b, c] = [c, b]; [nb, nc] = [nc, nb]; [cb, cc] = [cc, cb]; } // que la cara mire hacia su normal
+    for (const [v, n, k] of [[a, na, ca], [b, nb, cb], [c, nc, cc]]) { this.p.push(v[0], v[1], v[2]); this.n.push(n[0], n[1], n[2]); this.c.push(k.r, k.g, k.b); }
   }
-  quad(a, b, c, d, color, na, nb, nc, nd) { this.tri(a, b, c, color, na, nb, nc); this.tri(a, c, d, color, na, nc, nd); }
+  // c2: el color de arriba (c y d), para degradar de abajo hacia arriba
+  quad(a, b, c, d, color, na, nb, nc, nd, c2) {
+    if (!c2) { this.tri(a, b, c, color, na, nb, nc); this.tri(a, c, d, color, na, nc, nd); return; }
+    this.tri(a, b, c, [color, color, c2], na, nb, nc); this.tri(a, c, d, [color, c2, c2], na, nc, nd);
+  }
   malla(mat) {
     const g = new T.BufferGeometry();
     g.setAttribute('position', new T.Float32BufferAttribute(this.p, 3));
     g.setAttribute('color', new T.Float32BufferAttribute(this.c, 3));
     g.setAttribute('normal', new T.Float32BufferAttribute(this.n, 3));
+    const uv = new Float32Array(this.p.length / 3 * 2); // la textura va pegada al mundo: una baldosa cada 512 px
+    for (let i = 0, j = 0; i < this.p.length; i += 3, j += 2) { uv[j] = this.p[i] / 512; uv[j + 1] = this.p[i + 2] / 512; }
+    g.setAttribute('uv', new T.BufferAttribute(uv, 2));
     return new T.Mesh(g, mat);
   }
 }
@@ -68,6 +77,35 @@ function poligono(m, pts, y, color) {
   const tris = T.ShapeUtils.triangulateShape(pts.map((q) => new T.Vector2(q.x, q.y)), []);
   for (const [a, b, c] of tris) m.tri([pts[a].x, y, pts[a].y], [pts[b].x, y, pts[b].y], [pts[c].x, y, pts[c].y], color);
 }
+function pintura(base, manchas, n, rmin, rmax, granos = 0) {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const x = c.getContext('2d');
+  x.fillStyle = base; x.fillRect(0, 0, 256, 256);
+  let sem = 11; const r = () => ((sem = (sem * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < n; i++) {
+    const px = r() * 256, py = r() * 256, rad = rmin + r() * (rmax - rmin);
+    x.fillStyle = manchas[(r() * manchas.length) | 0];
+    for (const [dx, dy] of [[0, 0], [256, 0], [-256, 0], [0, 256], [0, -256]]) { x.beginPath(); x.ellipse(px + dx, py + dy, rad, rad * (0.6 + r() * 0.4), r() * 3, 0, 7); x.fill(); } // se repite sin costura
+  }
+  for (let i = 0; i < granos; i++) { x.fillStyle = r() < 0.5 ? 'rgba(255,255,255,.10)' : 'rgba(0,0,0,.07)'; x.fillRect(r() * 256, r() * 256, 2, 2); }
+  const t = new T.CanvasTexture(c); t.wrapS = t.wrapT = T.RepeatWrapping; t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4;
+  return t;
+}
+// la carrocería pintada a mano, como los gusanitos de verdad: más clara arriba, con lunares y florcitas
+function pintado(color, borde) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+  const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 128);
+  g.addColorStop(0, '#FFFFFF'); g.addColorStop(0.5, color); g.addColorStop(1, color);
+  x.fillStyle = color; x.fillRect(0, 0, 256, 128); x.globalAlpha = 0.35; x.fillStyle = g; x.fillRect(0, 0, 256, 128); x.globalAlpha = 1;
+  let sem = 5; const r = () => ((sem = (sem * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 26; i++) {
+    const px = r() * 256, py = 10 + r() * 108;
+    if (i % 3) { x.fillStyle = 'rgba(255,255,255,.75)'; x.beginPath(); x.arc(px, py, 3 + r() * 3, 0, 7); x.fill(); }
+    else { x.fillStyle = borde; for (let k = 0; k < 5; k++) { x.beginPath(); x.arc(px + Math.cos(k * 1.257) * 5, py + Math.sin(k * 1.257) * 5, 3.4, 0, 7); x.fill(); } x.fillStyle = '#FFE36E'; x.beginPath(); x.arc(px, py, 2.6, 0, 7); x.fill(); }
+  }
+  const t = new T.CanvasTexture(c); t.wrapS = t.wrapT = T.RepeatWrapping; t.colorSpace = T.SRGBColorSpace;
+  return t;
+}
 function tela(colores, rep = 2) { // tela de rayas para los toldos
   const c = document.createElement('canvas'); c.width = 64; c.height = 8;
   const x = c.getContext('2d');
@@ -90,11 +128,13 @@ function construir() {
   escena.background = col('#BFE3F2');
   escena.fog = new T.Fog('#CFE6EC', 1500, 4200);
   camara = new T.PerspectiveCamera(46, 1, 20, 7000);
+  const pm = new T.PMREMGenerator(renderer);
+  escena.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; escena.environmentIntensity = 0.28;
 
   // luz: cielo y rebote del suelo, y un sol tibio de tarde que hace las sombras
-  cielo = new T.HemisphereLight('#F3F8FF', '#C9E0A8', 1.7);
+  cielo = new T.HemisphereLight('#EAF4FF', '#D9C9A0', 0.8);
   escena.add(cielo);
-  sol = new T.DirectionalLight('#FFF1D6', 1.9);
+  sol = new T.DirectionalLight('#FFE7BF', 2.0);
   sol.castShadow = true; sol.shadow.mapSize.set(2048, 2048); sol.shadow.bias = -0.0012; sol.shadow.normalBias = 5; sol.shadow.radius = 4; sol.shadow.blurSamples = 12;
   Object.assign(sol.shadow.camera, { left: -1300, right: 1300, top: 1300, bottom: -1300, near: 100, far: 4200 });
   escena.add(sol, sol.target);
@@ -104,10 +144,11 @@ function construir() {
 
   // ─── el suelo, las calles y las veredas ───
   const radio = M.vista * M.E * 1.6;
-  const pasto = new T.Mesh(new T.CircleGeometry(radio, 64), new T.MeshStandardMaterial({ color: '#A5DC78', roughness: 1 }));
+  const pasto = new T.Mesh(new T.CircleGeometry(radio, 64), new T.MeshStandardMaterial({ roughness: 1, map: pintura('#9BD472', ['rgba(140,205,95,.55)', 'rgba(176,226,128,.5)', 'rgba(120,190,90,.4)', 'rgba(200,232,140,.35)'], 90, 14, 46) }));
+  pasto.material.map.repeat.set(radio * 2 / 620, radio * 2 / 620);
   pasto.rotation.x = -Math.PI / 2; pasto.receiveShadow = true; escena.add(pasto);
 
-  const suelo = new Malla(), GRIS = col('#A3ADB8'), VEREDA = col('#EEF0F2'), BORDE = col('#C5CCD4'), RAYA = col('#FFFFFF');
+  const suelo = new Malla(), GRIS = col('#97A2AE'), VEREDA = col('#EEF0F2'), BORDE = col('#C5CCD4'), RAYA = col('#FFFFFF');
   const lineas = [...M.tramos, ...M.vistas];
   for (const l of lineas) cinta(suelo, l.p, l.hw + 20, 3.2, BORDE);
   for (const l of lineas) cinta(suelo, l.p, l.hw + 17, 4, VEREDA);
@@ -118,13 +159,13 @@ function construir() {
   disco(suelo, M.parque.x, M.parque.y, M.parque.r * 0.5 + 16, 4.8, col('#F4DDB0'));
   disco(suelo, M.parque.x, M.parque.y, M.parque.r * 0.5 - 16, 4.9, col('#B4E583'));
   disco(suelo, M.parque.x, M.parque.y, 70, 5, col('#EFE6D6'));
-  const sueloM = suelo.malla(mate()); sueloM.receiveShadow = true; escena.add(sueloM);
+  const sueloM = suelo.malla(mate({ map: pintura('#FFFFFF', ['rgba(214,220,226,.5)', 'rgba(255,255,255,.6)', 'rgba(226,222,212,.45)'], 60, 10, 34, 500) })); sueloM.receiveShadow = true; escena.add(sueloM);
 
   // la calzada va hundida entre las veredas (más abajo que ellas): se dibuja encima con un pelo de ventaja
   const calz = new Malla();
   for (const l of lineas) cinta(calz, l.p, l.hw, 4.6, GRIS);
   for (const r of M.redondeles) disco(calz, r.x, r.y, r.R, 4.7, GRIS);
-  const calzM = calz.malla(mate({ roughness: 0.82 })); calzM.receiveShadow = true; escena.add(calzM);
+  const calzM = calz.malla(mate({ roughness: 0.95, map: pintura('#FFFFFF', ['rgba(226,230,236,.35)', 'rgba(246,248,250,.4)', 'rgba(214,220,228,.3)'], 40, 20, 60, 1800) })); calzM.receiveShadow = true; escena.add(calzM);
   // rayas del centro y pasos de cebra
   const rayas = new Malla();
   for (const l of lineas) {
@@ -174,13 +215,14 @@ function construir() {
     }
     const pt = (q, esc, y) => [c.x + (c.ux * q.lu + c.nx * q.lv) * esc, y, c.y + (c.uy * q.lu + c.ny * q.lv) * esc];
     const nrm = (q, arriba) => { const k = 1 - arriba; return [q.nx * k, arriba, q.nz * k]; };
-    const anillo = (e0, y0, e1, y1, color, u0, u1) => { for (let i = 0; i < o.length; i++) { const a = o[i], b = o[(i + 1) % o.length]; casas.quad(pt(a, e0, y0), pt(b, e0, y0), pt(b, e1, y1), pt(a, e1, y1), color, nrm(a, u0), nrm(b, u0), nrm(b, u1), nrm(a, u1)); } };
+    const anillo = (e0, y0, e1, y1, color, u0, u1, c2) => { for (let i = 0; i < o.length; i++) { const a = o[i], b = o[(i + 1) % o.length]; casas.quad(pt(a, e0, y0), pt(b, e0, y0), pt(b, e1, y1), pt(a, e1, y1), color, nrm(a, u0), nrm(b, u0), nrm(b, u1), nrm(a, u1), c2); } };
+    const claro = (k, f) => k.clone().lerp(col('#FFFFFF'), f), oscuro = (k, f) => k.clone().multiplyScalar(f);
     anillo(1.015, 4, 1.015, 13, ZOC, 0, 0);
-    anillo(1, 13, 1, h, P, 0, 0);
+    anillo(1, 13, 1, h, oscuro(P, 0.8), 0, 0, claro(P, 0.25));
     anillo(1.08, h, 1.08, h + 6, R.clone().multiplyScalar(0.9), 0, 0.2);       // el filo del techo
-    anillo(1.08, h + 6, 0.74, h + sube * 0.7, R, 0.45, 0.6);
-    anillo(0.74, h + sube * 0.7, 0.34, h + sube, R, 0.7, 0.9);
-    for (let i = 0; i < o.length; i++) casas.tri([c.x, h + sube + 2, c.y], pt(o[i], 0.34, h + sube), pt(o[(i + 1) % o.length], 0.34, h + sube), R, [0, 1, 0], nrm(o[i], 0.9), nrm(o[(i + 1) % o.length], 0.9));
+    anillo(1.08, h + 6, 0.74, h + sube * 0.7, oscuro(R, 0.86), 0.45, 0.6, R);
+    anillo(0.74, h + sube * 0.7, 0.34, h + sube, R, 0.7, 0.9, claro(R, 0.22));
+    for (let i = 0; i < o.length; i++) casas.tri([c.x, h + sube + 2, c.y], pt(o[i], 0.34, h + sube), pt(o[(i + 1) % o.length], 0.34, h + sube), claro(R, 0.22), [0, 1, 0], nrm(o[i], 0.9), nrm(o[(i + 1) % o.length], 0.9));
     // ventanas en los cuatro lados rectos
     for (const [su, sv] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
       const nx = c.ux * su + c.nx * sv, nz = c.uy * su + c.ny * sv, tx = su ? c.nx : c.ux, tz = su ? c.ny : c.uy, medio = su ? hh - r : hw - r, fuera = su ? hw : hh;
@@ -192,7 +234,7 @@ function construir() {
     const h = e.iglesia ? 150 : 90, P = col(e.iglesia ? '#FFFBF3' : '#FDEFC2'), R = col(e.iglesia ? '#F4A07A' : '#7FB3D9');
     for (let i = 0; i < e.p.length; i++) {
       const a = e.p[i], b = e.p[(i + 1) % e.p.length];
-      casas.quad([a.x, 4, a.y], [b.x, 4, b.y], [b.x, h, b.y], [a.x, h, a.y], P);
+      casas.quad([a.x, 4, a.y], [b.x, 4, b.y], [b.x, h, b.y], [a.x, h, a.y], P.clone().multiplyScalar(0.78), undefined, undefined, undefined, undefined, P);
       const fa = { x: e.cx + (a.x - e.cx) * 1.04, y: e.cy + (a.y - e.cy) * 1.04 }, fb = { x: e.cx + (b.x - e.cx) * 1.04, y: e.cy + (b.y - e.cy) * 1.04 };
       casas.quad([fa.x, h, fa.y], [fb.x, h, fb.y], [fb.x, h + 10, fb.y], [fa.x, h + 10, fa.y], R);
     }
@@ -300,7 +342,7 @@ function valla(m, v) { // valla de rayas rojas y blancas con sus patas
 }
 
 // vinilo suave: mate, con un velo claro en los bordes (sheen) que lo hace ver blandito y no de plástico
-const brillo = (color, extra) => new T.MeshPhysicalMaterial({ color, roughness: 0.62, metalness: 0, sheen: 1, sheenRoughness: 0.45, sheenColor: col(color).lerp(col('#FFFFFF'), 0.6), ...extra });
+const brillo = (color, extra) => new T.MeshPhysicalMaterial({ color, roughness: 0.78, metalness: 0, sheen: 0.5, sheenRoughness: 0.6, sheenColor: col(color).lerp(col('#FFFFFF'), 0.5), envMapIntensity: 0.6, ...extra });
 function ruedas(g, largo, ancho) {
   const geo = new T.SphereGeometry(10, 14, 10), mat = new T.MeshStandardMaterial({ color: '#4A4458', roughness: 0.9 });
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const r = new T.Mesh(geo, mat); r.scale.z = 0.55; r.position.set(sx * largo * 0.28, 12, sz * (ancho / 2 + 1)); r.castShadow = true; g.add(r); }
@@ -315,7 +357,7 @@ function toldo(g, largo, ancho, colores, x = 0, alto = 62) {
 }
 function cabeza() {
   const g = new T.Group(), C = M.C;
-  const cuerpo = new T.Mesh(new T.SphereGeometry(1, 28, 18), brillo('#8BD43B')); cuerpo.scale.set(C.cabezaL / 2, 19, C.cabezaA / 2); cuerpo.position.y = 26; cuerpo.castShadow = true;
+  const cuerpo = new T.Mesh(new T.SphereGeometry(1, 28, 18), brillo('#FFFFFF', { map: pintado('#8BD43B', '#E8458B') })); cuerpo.material.map.repeat.set(2, 1); cuerpo.scale.set(C.cabezaL / 2, 19, C.cabezaA / 2); cuerpo.position.y = 26; cuerpo.castShadow = true;
   const franja = new T.Mesh(new T.SphereGeometry(1, 28, 18), brillo('#E8458B')); franja.scale.set(C.cabezaL / 2 + 1, 9, C.cabezaA / 2 + 1); franja.position.y = 18;
   g.add(cuerpo, franja);
   for (const s of [-1, 1]) { // ojos con pestañas, antenas
@@ -336,7 +378,7 @@ function cabeza() {
 function vagon(v) {
   const g = new T.Group(), C = M.C;
   const base = new T.Mesh(new T.CapsuleGeometry(C.vagonA / 2, C.vagonL - C.vagonA, 6, 18), brillo(v.pal.borde)); base.rotation.z = Math.PI / 2; base.scale.set(0.42, 1, 1); base.position.y = 20; base.castShadow = true;
-  const tina = new T.Mesh(new T.CapsuleGeometry(C.vagonA / 2 - 3, C.vagonL - C.vagonA, 6, 18), brillo(v.pal.cuerpo)); tina.rotation.z = Math.PI / 2; tina.scale.set(0.5, 1, 1); tina.position.y = 25;
+  const tina = new T.Mesh(new T.CapsuleGeometry(C.vagonA / 2 - 3, C.vagonL - C.vagonA, 6, 18), brillo('#FFFFFF', { map: pintado(v.pal.cuerpo, v.pal.borde) })); tina.rotation.z = Math.PI / 2; tina.scale.set(0.5, 1, 1); tina.position.y = 25;
   g.add(base, tina);
   ruedas(g, C.vagonL, C.vagonA);
   toldo(g, C.vagonL - 6, C.vagonA + 8, v.pal.toldo);
@@ -363,11 +405,11 @@ G3D.render = function (f) {
   camara.lookAt(S.cam.x + fx * adelante, 20, S.cam.y + fz * adelante);
   // sol de tarde o luna; la sombra sigue a la cabeza
   const noche = S.noche;
-  sol.color.set(noche ? '#9FB4FF' : '#FFF1D6'); sol.intensity = noche ? 1.1 : 1.9;
-  cielo.intensity = noche ? 0.75 : 1.7; cielo.color.set(noche ? '#7C8FD6' : '#F3F8FF');
+  sol.color.set(noche ? '#9FB4FF' : '#FFE7BF'); sol.intensity = noche ? 1.1 : 2.0;
+  cielo.intensity = noche ? 0.75 : 0.8; cielo.color.set(noche ? '#7C8FD6' : '#EAF4FF'); escena.environmentIntensity = noche ? 0.1 : 0.28;
   escena.background.set(noche ? '#141C3A' : '#BFE3F2'); escena.fog.color.set(noche ? '#1A2244' : '#CFE6EC');
   ventanas.material.emissiveIntensity = noche ? 2.4 : 0;
-  sol.target.position.set(k.x, 0, k.y); sol.position.set(k.x - 900, 1500, k.y - 1100);
+  sol.target.position.set(k.x, 0, k.y); sol.position.set(k.x - 1500, 1150, k.y - 800);
   faro.intensity = noche ? 9000 : 0; faro.decay = 1.3;
   faro.position.set(k.x + Math.cos(k.ang) * 30, 40, k.y + Math.sin(k.ang) * 30); faro.target.position.set(k.x + Math.cos(k.ang) * 400, 0, k.y + Math.sin(k.ang) * 400);
 

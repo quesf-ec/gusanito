@@ -1097,15 +1097,15 @@
     // tanquear: llena el tanque; si no alcanza, pone la gasolina que alcance con toda la plata
     combustible: () => {
       const lleno = S.comb >= C.tanque - 0.05, coste = Math.min(precioComb(), Math.floor(S.plata * 100) / 100);
-      return { ico: '⛽', nombre: !lleno && coste < precioComb() ? 'Tanquear lo que alcance' : 'Llenar el tanque',
+      return { tono: '#F36B3B', ico: '<svg viewBox="0 0 24 24"><path d="M12 2c4 5 7 8.5 7 12a7 7 0 1 1-14 0c0-3.5 3-7 7-12z"/></svg>', nombre: !lleno && coste < precioComb() ? 'Tanquear lo que alcance' : 'Llenar el tanque',
         nota: S.comb < 0.05 ? '¡Sin gasolina no sales!' : `quedan ${kmTxt(S.comb)} de ${C.tanque} · $${precioKm().toFixed(2).replace('.', ',')} el km`,
         coste: Math.max(coste, 0.05), hecho: lleno, listo: 'Lleno', urge: S.comb < 1 };
     },
-    vagon: () => ({ ico: '🚃', nombre: 'Vagón nuevo', nota: `+4 asientos · la cola más brava`, coste: precioVagon(S.vagones.length + 1) }),
-    barras: () => ({ ico: '🔩', nombre: 'Barras reforzadas', nota: `la cola aguanta +30 %${S.barras ? ` (tienes ${S.barras})` : ''}`, coste: 30 * (S.barras + 1) }),
-    parlante: () => ({ ico: '🔊', nombre: 'Parlante', nota: 'se divierten más rápido', coste: 60, hecho: S.parlante, listo: 'Ya lo tienes' }),
-    luces: () => ({ ico: '💡', nombre: 'Luces', nota: 'juega de noche: cobras ×1,5', coste: 50, hecho: S.luces, listo: 'Ya las tienes' }),
-    noche: () => ({ ico: '🌙', nombre: 'De noche', nota: 'cobras ×1,5', coste: 0, libre: true }),
+    vagon: () => ({ tono: '#E8458B', ico: '<svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="10" rx="5"/><circle cx="8" cy="18.5" r="2.5"/><circle cx="16" cy="18.5" r="2.5"/></svg>', nombre: 'Vagón nuevo', nota: `+4 asientos · la cola más brava`, coste: precioVagon(S.vagones.length + 1) }),
+    barras: () => ({ tono: '#8E9AAF', ico: '<svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="4" rx="2"/><circle cx="5" cy="12" r="4"/><circle cx="19" cy="12" r="4"/></svg>', nombre: 'Barras reforzadas', nota: `la cola aguanta +30 %${S.barras ? ` (tienes ${S.barras})` : ''}`, coste: 30 * (S.barras + 1) }),
+    parlante: () => ({ tono: '#6C72D9', ico: '<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8a5.5 5.5 0 0 1 0 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>', nombre: 'Parlante', nota: 'se divierten más rápido', coste: 60, hecho: S.parlante, listo: 'Ya lo tienes' }),
+    luces: () => ({ tono: '#F6A823', ico: '<svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/><rect x="9" y="18.5" width="6" height="3.5" rx="1.7"/></svg>', nombre: 'Luces', nota: 'juega de noche: cobras ×1,5', coste: 50, hecho: S.luces, listo: 'Ya las tienes' }),
+    noche: () => ({ tono: '#4B4FB0', ico: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>', nombre: 'De noche', nota: 'cobras ×1,5', coste: 0, libre: true }),
   }))();
   function renderTienda() {
     const ids = ['combustible', 'vagon', 'barras', 'parlante', 'luces'];
@@ -1115,7 +1115,7 @@
       const guarda = reservaComb(id, it), bloqueo = !falta && guarda; // sin combustible, primero se paga el combustible
       const etiqueta = it.libre ? (S.noche ? 'Sí' : 'No') : it.hecho ? '✓ ' + it.listo : falta ? `faltan ${plata(it.coste - S.plata)}` : bloqueo ? 'primero ⛽' : plata(it.coste);
       const clase = 'oferta' + (it.hecho ? ' oferta--hecho' : '') + (it.urge && !it.hecho ? ' oferta--urge' : '') + (it.libre && S.noche ? ' oferta--activa' : '');
-      return `<button class="${clase}" type="button" data-item="${id}"${it.hecho || falta || bloqueo ? ' disabled' : ''}><span class="oferta__ico" aria-hidden="true">${it.ico}</span><span class="oferta__nombre">${it.nombre}</span><span class="oferta__nota">${it.nota}</span><span class="oferta__precio">${etiqueta}</span></button>`;
+      return `<button class="${clase}" type="button" data-item="${id}"${it.hecho || falta || bloqueo ? ' disabled' : ''}><span class="oferta__ico" aria-hidden="true" style="--tono:${it.tono}">${it.ico}</span><span class="oferta__nombre">${it.nombre}</span><span class="oferta__nota">${it.nota}</span><span class="oferta__precio">${etiqueta}</span></button>`;
     }).join('');
     $('#est-plata').textContent = plata(S.plata);
     const u = S.ultimo;
@@ -2280,7 +2280,8 @@
   }
 
   // ─── HUD ───────────────────────────────────────────────────────────
-  const h = { objetivo: $('#h-objetivo'), tiempo: $('#h-tiempo-bar'), plata: $('#h-plata'), largo: $('#h-largo'), vueltas: $('#h-vueltas'), comb: $('#h-comb'), vidas: $('#h-vidas') };
+  const h = { objetivo: $('#h-objetivo'), tiempo: $('#h-tiempo-bar'), plata: $('#h-plata'), largo: $('#h-largo'), vueltas: $('#h-vueltas'), comb: $('#h-comb'), vidas: $('#h-vidas'), anillo: $('#h-anillo'), seg: $('#h-seg'), gas: $('#h-gas') };
+  const CORAZON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-8.5-5.4-8.5-11.3A4.7 4.7 0 0 1 12 7a4.7 4.7 0 0 1 8.5 2.7C20.5 15.600 12 21 12 21z" fill="#EF5B45"/><path d="M7.500 8.500a2.500 2.500 0 0 1 2.200-1.300" fill="none" stroke="#FFC2B8" stroke-width="1.800" stroke-linecap="round"/></svg>'.replace(/(\.\d)00/g, '$1');
   const reloj = (x) => Math.floor(x / 60) + ':' + String(x % 60).padStart(2, '0');
   let hudCache = '';
   function actualizarHud(forzar) {
@@ -2299,14 +2300,18 @@
     else if (vt <= C.ventana) { txt = `¡Vuelve a la estación! · ${reloj(seg)}`; clase = avg >= C.minDiv ? 'bien' : 'mal'; }
     else if (hay && avg >= C.minDiv) { txt = `¡Bien! Sigue así · ${reloj(seg)}`; clase = 'bien'; }
     else txt = `Diviértelos · ${reloj(seg)}`;
-    h.objetivo.textContent = txt; h.objetivo.className = 'objetivo ' + clase;
+    h.objetivo.textContent = txt.replace(/ · \d+:\d+$/, ''); h.objetivo.className = 'objetivo ' + clase; // el tiempo va en el aro
+    h.anillo.style.setProperty('--t', vt === null ? '0%' : (clamp(vt / C.vuelta, 0, 1) * 100) + '%');
+    h.anillo.classList.toggle('poco', vt !== null && vt <= C.ventana);
+    h.seg.textContent = vt === null ? '·' : Math.max(0, seg);
+    h.gas.style.width = clamp(S.comb / C.tanque, 0, 1) * 100 + '%';
     h.tiempo.style.width = vt === null ? '0%' : (clamp(vt / C.vuelta, 0, 1) * 100) + '%';
     h.tiempo.classList.toggle('poco', vt !== null && vt <= C.ventana);
     h.largo.textContent = S.vagones.length;
     h.vueltas.textContent = S.viajes;
     h.comb.textContent = kmTxt(S.comb);
     h.comb.classList.toggle('mal', S.comb < 0.6);
-    h.vidas.textContent = '♥'.repeat(S.vidas) + '♡'.repeat(Math.max(0, C.vidas - S.vidas));
+    h.vidas.innerHTML = Array.from({ length: C.vidas }, (_, i) => (i < S.vidas ? CORAZON : CORAZON.replace('<svg', '<svg class="no"'))).join('');
   }
 
   // La plata del marcador no salta: cuenta hasta el valor nuevo
@@ -2478,7 +2483,6 @@
   const bSon = $('#b-sonido');
   bSon.addEventListener('click', () => {
     conSonido = !conSonido; bSon.setAttribute('aria-pressed', String(conSonido));
-    bSon.style.opacity = conSonido ? 1 : 0.5;
     if (maestro) maestro.gain.value = conSonido ? 0.5 : 0;
   });
 

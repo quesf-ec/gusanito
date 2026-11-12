@@ -190,42 +190,97 @@ body{background:#8CC85E}
 .mas{font-size:.9rem}
 .mas summary{cursor:pointer;text-align:center;font-weight:600;color:var(--cafe2);padding:4px}
 .mas[open] summary{margin-bottom:10px}
-/* ─── Letras grandes: es un juego de celular, se lee de un vistazo ─── */
-.barra{padding:7px 10px;gap:8px}
-.barra__botones .btn--icono{width:44px;height:44px}
-.objetivo{font-size:clamp(1.05rem,.9rem + 1vw,1.3rem);padding:6px 14px;font-weight:700}
-.reloj{height:8px;border-radius:4px;width:min(60vw,320px)}
-.barra__plata{font-size:clamp(1.3rem,1.1rem + 1vw,1.6rem);padding:3px 12px}
-.fichas{gap:8px}
-.ficha-dato{font-size:1.05rem;padding:4px 12px;gap:6px}
-.aviso{font-size:clamp(1.1rem,1rem + .6vw,1.35rem);padding:6px 14px}
+/* ─── El tablero: una pieza de juguete arriba, la misión debajo y dos pedales abajo ─── */
+.hud-juego{gap:8px}
+.tablero{pointer-events:auto;width:100%;max-width:560px;display:flex;align-items:center;gap:8px;padding:7px 10px 7px 7px;border-radius:999px;
+  background:linear-gradient(#FFFDF6,#FBEFD3);border:3px solid #fff;box-shadow:0 0 0 3px var(--dorado),0 7px 0 2px rgba(122,82,40,.32),0 14px 22px rgba(60,35,10,.22)}
+.tab__menu{flex:none;width:50px;height:50px;border-radius:50%;border:3px solid #fff;cursor:pointer;display:grid;place-items:center;
+  background:radial-gradient(circle at 35% 28%,#FFB37A,#F36B3B 62%);box-shadow:0 0 0 2px #C4512A,0 4px 0 2px #9E3D1E;-webkit-tap-highlight-color:transparent}
+.tab__menu svg{width:24px;height:24px;fill:#fff;filter:drop-shadow(0 1px 0 rgba(0,0,0,.25))}
+.tab__menu:active{transform:translateY(3px);box-shadow:0 0 0 2px #C4512A,0 1px 0 2px #9E3D1E}
+.pozo{margin:0;display:flex;align-items:center;gap:6px;height:42px;padding:0 12px 0 5px;border-radius:999px;background:#F1E0B8;
+  box-shadow:inset 0 3px 0 rgba(122,82,40,.22),inset 0 -2px 0 rgba(255,255,255,.7);min-width:0}
+.pozo svg{flex:none;width:32px;height:32px;filter:drop-shadow(0 2px 0 rgba(122,82,40,.3))}
+.pozo b{font:700 1.35rem/1 var(--redonda);color:var(--cafe);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pozo--plata{flex:1 1 auto}
+.pozo--plata b{font-size:1.55rem}
+#h-plata.salta{animation:salta .28s ease-out;display:inline-block}
+.pozo--gas{flex:none;gap:5px}
+.pozo--gas b{font-size:1.05rem}
+.pozo--gas b.mal{color:#D6382B}
+.gas{width:38px;height:12px;border-radius:6px;background:rgba(122,82,40,.25);overflow:hidden;box-shadow:inset 0 2px 0 rgba(0,0,0,.12)}
+.gas i{display:block;height:100%;width:100%;border-radius:6px;background:linear-gradient(#FFB37A,#F36B3B);transition:width .3s}
+.vidas{margin:0;display:flex;gap:2px;flex:none}
+.vidas svg{width:26px;height:26px;filter:drop-shadow(0 2px 0 rgba(122,82,40,.3))}
+.vidas .no{opacity:.25;filter:grayscale(1)}
+/* la misión: qué hacer, con el tiempo en un aro */
+.mision{position:relative;display:flex;align-items:center;gap:8px;width:100%;max-width:560px;pointer-events:none}
+.anillo{--t:0%;flex:none;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;z-index:1;margin-right:-26px;
+  background:conic-gradient(#5CC15A var(--t),#E7D9B8 0);border:3px solid #fff;box-shadow:0 0 0 2px var(--dorado),0 5px 0 1px rgba(122,82,40,.3)}
+.anillo.poco{background:conic-gradient(#EF5B45 var(--t),#E7D9B8 0)}
+.anillo b{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:#FFFDF6;font:700 1.25rem/1 var(--redonda);color:var(--cafe);font-variant-numeric:tabular-nums}
+.anillo.poco b{color:#D6382B}
+.objetivo{flex:1 1 auto;margin:0;padding:10px 14px 10px 34px;border-radius:999px;text-align:left;white-space:normal;line-height:1.15;
+  font:700 clamp(1.05rem,.9rem + 1vw,1.3rem)/1.15 var(--redonda);color:#fff;background:linear-gradient(#6C72D9,#4B4FB0);
+  border:3px solid #fff;box-shadow:0 0 0 2px #3A3D8C,0 5px 0 1px rgba(40,40,110,.45);text-shadow:0 2px 0 rgba(30,30,90,.5);max-width:none;overflow:visible}
+.objetivo.bien{background:linear-gradient(#7FD46A,#3FA548);box-shadow:0 0 0 2px #2F7D3A,0 5px 0 1px rgba(30,90,40,.45);color:#fff;text-shadow:0 2px 0 rgba(20,80,30,.5)}
+.objetivo.listo{background:linear-gradient(#FFD75A,#F6A823);box-shadow:0 0 0 2px #B97A12,0 5px 0 1px rgba(140,90,10,.45);color:#5A3B22;text-shadow:0 1px 0 rgba(255,255,255,.5)}
+.objetivo.mal{background:linear-gradient(#FF8A6E,#E2452F);box-shadow:0 0 0 2px #A8301F,0 5px 0 1px rgba(130,30,20,.45);color:#fff;text-shadow:0 2px 0 rgba(120,20,10,.5)}
+.mision__datos{flex:none;display:grid;gap:4px}
+.mision__datos span{display:flex;align-items:center;gap:4px;padding:2px 10px 2px 4px;border-radius:999px;background:#FFFDF6;border:2px solid #fff;box-shadow:0 0 0 2px var(--dorado),0 3px 0 1px rgba(122,82,40,.3)}
+.mision__datos svg{width:22px;height:22px}
+.mision__datos b{font:700 1.05rem/1 var(--redonda);color:var(--cafe);font-variant-numeric:tabular-nums}
+/* avisos: cintas */
+.aviso{font-size:clamp(1.1rem,1rem + .6vw,1.3rem);padding:7px 16px;border-radius:999px;background:rgba(58,36,20,.9);border:2px solid rgba(255,255,255,.35);
+  box-shadow:0 4px 0 rgba(30,15,5,.35);text-shadow:none}
 .aviso--chico{font-size:1.02rem}
-.mando--freno,.mando--turbo{height:62px;width:clamp(130px,38vw,170px);font-size:1.15rem!important}
+/* pedales: freno redondo y un acelerador grande, con brillo arriba */
+.mandos{align-items:flex-end;gap:14px}
+.mando--freno,.mando--turbo{position:relative;overflow:hidden;border:4px solid #fff;font-size:1.2rem!important;letter-spacing:.04em;text-transform:none}
+.mando--freno::before,.mando--turbo::before{content:"";position:absolute;left:8%;right:8%;top:5px;height:38%;border-radius:999px;background:linear-gradient(rgba(255,255,255,.45),rgba(255,255,255,0))}
+.mando--freno{width:84px;height:84px;border-radius:50%;background:radial-gradient(circle at 40% 30%,#FF8E7A,#E2452F 65%);box-shadow:0 0 0 2px #A8301F,0 7px 0 2px #8E2618,0 14px 18px rgba(0,0,0,.25);font-size:1rem!important}
+.mando--turbo{width:clamp(170px,48vw,230px);height:84px;border-radius:30px;background:linear-gradient(#7FE06A,#3FA548);box-shadow:0 0 0 2px #2F7D3A,0 7px 0 2px #246B30,0 14px 18px rgba(0,0,0,.25);font-size:1.5rem!important;text-shadow:0 2px 0 rgba(20,80,30,.5)}
+.mando--freno.activo{transform:translateY(5px);background:radial-gradient(circle at 40% 30%,#FFD27A,#F6A823 65%);box-shadow:0 0 0 2px #B97A12,0 2px 0 2px #8E5E0E;color:#5A3B22}
+.mando--turbo.activo{transform:translateY(5px);background:linear-gradient(#FFE66E,#F6B823);box-shadow:0 0 0 2px #B97A12,0 2px 0 2px #8E5E0E;color:#5A3B22;text-shadow:none;border-color:#fff}
 .teclas{font-size:.95rem;padding:4px 14px}
-.hoja{gap:12px;max-height:68dvh}
-.hoja__titulo{font-size:1.3rem}
-.hoja__resumen{font-size:1rem}
+@media (hover:hover) and (pointer:fine){ .mando--turbo{width:150px;height:50px;border-radius:20px;font-size:1rem!important} }
+/* la estación y los paneles */
+.hoja{gap:12px;max-height:70dvh;background:linear-gradient(#FFFDF6,#FBEFD3);border:3px solid #fff;border-bottom:0;border-radius:30px 30px 0 0;
+  box-shadow:0 0 0 3px var(--dorado),0 -10px 30px rgba(60,35,10,.25)}
+.hoja__titulo{font-size:1.4rem}
+.hoja__resumen{font-size:1rem;color:var(--cafe2);opacity:1}
 .hoja__plata small{font-size:.75rem}
-.hoja__plata b{font-size:1.7rem}
-.tienda{grid-auto-columns:minmax(170px,46%)}
-.oferta__ico{font-size:1.9rem}
-.oferta__nombre{font-size:1.08rem}
+.hoja__plata b{font-size:1.8rem}
+.tienda{grid-auto-columns:minmax(168px,45%);gap:10px;padding:4px 2px 8px}
+.oferta{background:#fff;border:3px solid #fff;border-radius:22px;padding:12px;box-shadow:0 0 0 2px var(--dorado),0 5px 0 1px var(--sombra);grid-template-columns:1fr;justify-items:start;row-gap:4px}
+.oferta__ico{grid-row:auto;width:54px;height:54px;border-radius:18px;display:grid;place-items:center;background:var(--tono,#CFEBF7);box-shadow:inset 0 -4px 0 rgba(0,0,0,.08)}
+.oferta__ico svg{width:34px;height:34px;fill:#fff;color:#fff;filter:drop-shadow(0 2px 0 rgba(0,0,0,.18))}
+.oferta__nombre{font-size:1.12rem;font-weight:700}
 .oferta__nota{font-size:.92rem}
-.oferta__precio{font-size:1.02rem;padding:3px 12px}
-.vamonos{font-size:1.6rem;padding:14px}
-.vamonos small{font-size:.95rem}
-.claves li{font-size:1.08rem}
-.capa__panel .btn{font-size:1.15rem;min-height:52px}
-.capa__panel .btn--rojo{font-size:1.4rem;min-height:60px}
+.oferta__precio{grid-column:auto;font-size:1.08rem;padding:4px 14px;margin-top:4px;background:linear-gradient(#FFD75A,#F6A823);border:0;color:#5A3B22;box-shadow:0 3px 0 #B97A12}
+.oferta:disabled .oferta__precio{background:#EEE6D6;color:var(--cafe2);box-shadow:none}
+.oferta--hecho .oferta__precio{background:linear-gradient(#7FD46A,#3FA548);color:#fff;box-shadow:0 3px 0 #2F7D3A;border:0}
+.oferta--urge{box-shadow:0 0 0 3px #EF5B45,0 5px 0 1px var(--sombra);background:#FFF3F0}
+.oferta--activa{box-shadow:0 0 0 3px #F6A823,0 5px 0 1px var(--sombra)}
+.vamonos{font-size:1.7rem;padding:16px;border:4px solid #fff;border-radius:26px;background:linear-gradient(#FF9A5C,#F0532D);
+  box-shadow:0 0 0 2px #C4512A,0 7px 0 2px #9E3D1E;text-shadow:0 2px 0 rgba(120,40,10,.5)}
+.vamonos small{font-size:.95rem;text-shadow:none}
+.vamonos:not(:disabled):active{transform:translateY(5px);box-shadow:0 0 0 2px #C4512A,0 2px 0 2px #9E3D1E}
+.vamonos:disabled{border-color:#fff}
+.capa .capa__panel{background:linear-gradient(#FFFDF6,#FBEFD3)!important;border:4px solid #fff;box-shadow:0 0 0 3px var(--dorado),0 10px 0 2px var(--sombra),0 24px 40px rgba(60,35,10,.3)}
+.capa__panel .btn{font-size:1.15rem;min-height:54px;border:3px solid #fff;box-shadow:0 0 0 2px var(--dorado),0 5px 0 1px var(--sombra)}
+.capa__panel .btn--rojo{font-size:1.5rem;min-height:66px;border:4px solid #fff;border-radius:24px;background:linear-gradient(#FF9A5C,#F0532D);box-shadow:0 0 0 2px #C4512A,0 7px 0 2px #9E3D1E;text-shadow:0 2px 0 rgba(120,40,10,.5)}
+#b-sonido[aria-pressed="true"]::after{content:" · encendido"}
+#b-sonido[aria-pressed="false"]::after{content:" · apagado"}
+.claves li{font-size:1.08rem;background:#F1E0B8;box-shadow:inset 0 3px 0 rgba(122,82,40,.16)}
 .resumen{font-size:1.05rem}
 .mas{font-size:1rem}
-@media (hover:hover) and (pointer:fine){ .mando--turbo{width:140px;height:46px;font-size:.95rem!important} }
-/* en pantallas angostas el objetivo va en su propia fila, entero */
-@media (max-width:560px){
-  .barra{grid-template-columns:auto 1fr auto;grid-template-areas:"b . p" "c c c";border-radius:26px;row-gap:6px}
-  .barra__botones{grid-area:b}.barra__plata{grid-area:p}.barra__centro{grid-area:c}
-  .objetivo{white-space:normal;line-height:1.2}
-  .reloj{width:100%}
+@media (max-width:430px){
+  .tablero{gap:6px;padding-right:8px}
+  .pozo--gas .gas{display:none}
+  .pozo{padding:0 9px 0 4px;gap:4px}.pozo svg{width:28px;height:28px}
+  .pozo--plata{flex:1 0 auto}.pozo--plata b{font-size:1.35rem}.pozo--gas b{font-size:1rem}
+  .vidas svg{width:21px;height:21px}.tab__menu{width:46px;height:46px}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
@@ -249,24 +304,20 @@ body{background:#8CC85E}
   <canvas id="pueblo" role="img" aria-label="Pujilí en fiestas visto desde arriba: sus calles de verdad con banderines, redondeles con flores, el Parque Central con su kiosco y la estación, la Iglesia Matriz, los mercados con la feria, y el gusanito de colores con sus vagones llenos de gente"></canvas>
 
   <div class="hud-juego">
-    <header class="barra">
-      <div class="barra__botones">
-        <button class="btn btn--icono" id="b-pausa" type="button" aria-label="Pausa">
-          <svg class="icono" aria-hidden="true"><use href="#i-menu"/></svg></button>
-        <button class="btn btn--icono" id="b-sonido" type="button" aria-label="Sonido" aria-pressed="true">
-          <svg class="icono" aria-hidden="true"><use href="#i-altavoz"/></svg></button>
-      </div>
-      <div class="barra__centro">
-        <p class="objetivo" id="h-objetivo" aria-live="polite">Estaciónate en el parque</p>
-        <div class="reloj" aria-hidden="true"><i id="h-tiempo-bar"></i></div>
-      </div>
-      <p class="barra__plata" id="h-plata">$0,00</p>
+    <header class="tablero">
+      <button class="tab__menu" id="b-pausa" type="button" aria-label="Pausa"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="5" height="16" rx="2"/><rect x="14" y="4" width="5" height="16" rx="2"/></svg></button>
+      <p class="pozo pozo--plata"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#F6C445"/><circle cx="12" cy="12" r="7" fill="#FFE08A"/><path d="M12 6.5v11M14.8 9.2c-.5-1-1.6-1.5-2.8-1.5-1.6 0-2.8.8-2.8 2.1 0 3 5.8 1.3 5.800 4.3 0 1.3-1.3 2.2-3 2.2-1.3 0-2.5-.6-3-1.600" fill="none" stroke="#C98A1B" stroke-width="1.8" stroke-linecap="round"/></svg><b id="h-plata">$0,00</b></p>
+      <p class="pozo pozo--gas" title="Gasolina"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c4 5 7 8.5 7 12a7 7 0 1 1-14 0c0-3.5 3-7 7-12z" fill="#F36B3B"/><path d="M9 14a3 3 0 0 0 3 3" fill="none" stroke="#FFD2BF" stroke-width="2" stroke-linecap="round"/></svg><span class="gas" aria-hidden="true"><i id="h-gas"></i></span><b id="h-comb">4,0 km</b></p>
+      <p class="vidas" id="h-vidas" aria-label="Vidas"></p>
     </header>
-    <div class="fichas">
-      <span class="ficha-dato" title="Vagones">🚃 <b id="h-largo">2</b></span>
-      <span class="ficha-dato" title="Vueltas">🔁 <b id="h-vueltas">0</b></span>
-      <span class="ficha-dato" title="Gasolina">⛽ <b id="h-comb">4,0 km</b></span>
-      <span class="ficha-dato" title="Vidas"><b id="h-vidas">♥♥♥</b></span>
+    <div class="mision">
+      <div class="anillo" id="h-anillo" aria-hidden="true"><b id="h-seg">60</b></div>
+      <p class="objetivo" id="h-objetivo" aria-live="polite">Estaciónate en el parque</p>
+      <div class="mision__datos">
+        <span title="Vagones"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="10" rx="5" fill="#E8458B"/><rect x="5" y="8" width="14" height="4" rx="2" fill="#FFD1E3"/><circle cx="8" cy="18" r="2.5" fill="#4A4458"/><circle cx="16" cy="18" r="2.5" fill="#4A4458"/></svg><b id="h-largo">2</b></span>
+        <span title="Vueltas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12a7 7 0 1 1-2.3-5.2" fill="none" stroke="#5CC15A" stroke-width="3.2" stroke-linecap="round"/><path d="M14.5 3.5l4 3.3-4.600 2.2z" fill="#5CC15A"/></svg><b id="h-vueltas">0</b></span>
+      </div>
+      <i id="h-tiempo-bar" hidden></i>
     </div>
     <div class="avisos" id="avisos" aria-live="polite"></div>
     <div class="hud-juego__abajo">
@@ -309,6 +360,7 @@ body{background:#8CC85E}
       <p class="kicker">En pausa</p>
       <h2 id="t-pausa">El gusanito espera</h2>
       <button class="btn btn--rojo boton-juego btn-block" id="b-seguir" type="button">Seguir</button>
+      <button class="btn btn-block" id="b-sonido" type="button" aria-pressed="true">Sonido</button>
       <button class="btn btn-block" id="b-reiniciar" type="button">Empezar de nuevo</button>
     </div>
   </div>
@@ -354,8 +406,8 @@ body{background:#8CC85E}
 
 <script src="https://franciscombp.github.io/ds/mal/mal.js?v=1.0.22" defer></script>
 <script src="mapas/pujili.js?v=1"></script>
-<script src="gusanito.js?v=30"></script>
-<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=2"></script>
+<script src="gusanito.js?v=31"></script>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }</script>
+<script type="module" src="render3d.js?v=3"></script>
 </body>
 </html>
