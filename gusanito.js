@@ -52,6 +52,11 @@
     // combo de zigzag: cada cambio de lado con buen meneo, antes de C.comboVentana s, suma; cada nivel de combo
     // multiplica lo que se divierten (+C.comboExtra, hasta C.comboMax niveles)
     comboVentana: 1.8, comboExtra: 0.2, comboMax: 6,
+    // fiesta total: al llegar al combo C.fiebreDesde se arma por C.fiebre s: se divierten el doble y la música corre
+    fiebreDesde: 6, fiebre: 6,
+    dona: 0.08,             // cada dona (giro completo) antes de marearse sube esto la diversión, y deja propina
+    pelo: 0.03,             // pasar rozando a los danzantes sin toparlos («¡Por un pelo!») sube esto
+    deseo: 0.25,            // llevarlos al lugar que pidieron sube esto, y deja buena propina
     // puntos de fiesta en la calle: pasar por uno anima a todos (+C.fiestaDiv) y deja propina por pasajero
     fiestas: 3, fiestaDiv: 0.12, fiestaPropina: 0.1,          // qué tan de frente tiene que ser un golpe para quitar vida (1 = derecho contra la pared)
     vuelta: 60,             // segundos de cada vuelta; siempre el mismo tiempo, tenga el largo que tenga
@@ -1086,7 +1091,18 @@
   }
   function salir() {
     if (!S.decidiendo || aBordo() === 0 || S.comb < 0.05) return;
-    S.decidiendo = false; S.vuelta = duracionVuelta(); S.viajeT = 0; S.est.carga = -99; S.listos = false; S.giros = 0; S.giroAcc = 0; S.giroT = 0; S.fiestas.length = 0; S.combo = 0;
+    S.decidiendo = false; S.vuelta = duracionVuelta(); S.viajeT = 0; S.est.carga = -99; S.listos = false; S.giros = 0; S.giroAcc = 0; S.giroT = 0; S.fiestas.length = 0; S.combo = 0; S.fiebre = 0;
+    { // el deseo de esta tanda: pasar por un lugar con nombre que quede cerca (cambia cada vuelta)
+      const ops = rotulos.filter((r) => r.t !== 'Parque Central' && r.t !== S.deseoAnt && Math.hypot(r.x - ESTACION.x, r.y - ESTACION.y) < 3400);
+      const r = ops.length ? elige(ops) : null;
+      if (r) {
+        let mejor = null, md = Infinity; // el punto de calle más cercano a ese lugar
+        for (const t of tramos) { if (t.salida) continue; for (const fr of [0.25, 0.5, 0.75]) { const m = enTramo(t, t.L * fr), d = Math.hypot(m.x - r.x, m.y - r.y); if (d < md) { md = d; mejor = m; } } }
+        S.deseoAnt = r.t;
+        S.fiestas.push({ x: mejor.x, y: mejor.y, t: 0, deseo: r.t });
+        anunciar(`Quieren pasar por: ${r.t}`, '#FFB3E0', 4.5);
+      }
+    }
     cerrarCalles();
     S.avisoComb = S.comb < 0.6 ? 1 : 0;
     if (S.comb < 1) anunciar(`Solo quedan ${kmTxt(S.comb)} de gasolina: no te alejes`, '#FFB3A8', 3.5, true);
@@ -1193,14 +1209,23 @@
             if (S.combo >= 3) { const u = S.vagones[S.vagones.length - 1]; confeti(u.x, u.y, 4 + Math.min(S.combo, 8)); }
           }
           S.mejorCombo = Math.max(S.mejorCombo || 0, S.combo);
+          if (S.combo >= C.fiebreDesde && !(S.fiebre > 0)) {
+            S.fiebre = C.fiebre;
+            anunciar('¡FIESTA TOTAL! Se divierten el doble', '#FFE36E', 3.5);
+            confeti(k.x, k.y, 70); sonar('nivel'); vibra(40);
+          }
         }
         S.comboLado = lado; S.comboGiro = Math.abs(giro);
       }
     }
     if (S.comboT > C.comboVentana || k.v < 60 || k.golpe > 0.5) { S.combo = 0; S.comboGiro = 0; }
+    if (S.fiebre > 0) { // mientras dura, confeti por la cola
+      S.fiebre -= dt;
+      if (!quieto && Math.random() < dt * 14 && S.vagones.length) { const u = S.vagones[(Math.random() * S.vagones.length) | 0]; confeti(u.x, u.y, 2); }
+    }
   }
   // cuánto multiplica el combo lo que se divierten
-  const extraCombo = () => 1 + C.comboExtra * clamp((S.combo || 0) - 1, 0, C.comboMax);
+  const extraCombo = () => (1 + C.comboExtra * clamp((S.combo || 0) - 1, 0, C.comboMax)) * (S.fiebre > 0 ? 2 : 1);
 
   // Puntos de fiesta: en media cuadra de alguna calle cerca de la estación. Pasar por uno anima a todos.
   function nuevaFiesta() {
@@ -1214,17 +1239,18 @@
   }
   function fiestas(dt) {
     if (S.vuelta === null || aBordo() === 0) { S.fiestas.length = 0; return; }
-    while (S.fiestas.length < C.fiestas) { const f = nuevaFiesta(); if (!f) break; S.fiestas.push(f); }
+    while (S.fiestas.filter((q) => !q.deseo).length < C.fiestas) { const f = nuevaFiesta(); if (!f) break; S.fiestas.push(f); }
     const k = S.cab;
     for (let i = S.fiestas.length - 1; i >= 0; i--) {
       const f = S.fiestas[i];
       f.t += dt;
-      if (Math.hypot(f.x - k.x, f.y - k.y) > 95) continue;
+      if (Math.hypot(f.x - k.x, f.y - k.y) > (f.deseo ? 150 : 95)) continue;
       S.fiestas.splice(i, 1);
-      const n = aBordo(), propina = Math.round(C.fiestaPropina * n * (S.noche ? 1.5 : 1) * 100) / 100;
-      for (const v of S.vagones) for (const p of v.asientos) if (p) p.div = Math.min(1, p.div + C.fiestaDiv);
+      const n = aBordo(), sube = f.deseo ? C.deseo : C.fiestaDiv, propina = Math.round(C.fiestaPropina * (f.deseo ? 3 : 1) * n * (S.noche ? 1.5 : 1) * 100) / 100;
+      for (const v of S.vagones) for (const p of v.asientos) if (p) p.div = Math.min(1, p.div + sube);
       S.plata += propina; S.total += propina; S.fiestasTomadas = (S.fiestasTomadas || 0) + 1;
-      texto(f.x, f.y - 40, `¡Fiesta! +${Math.round(C.fiestaDiv * 100)} % · +${plata(propina)}`, '#F2E14B', 1.6);
+      texto(f.x, f.y - 40, `${f.deseo ? `¡${f.deseo}!` : '¡Fiesta!'} +${Math.round(sube * 100)} % · +${plata(propina)}`, f.deseo ? '#FFB3E0' : '#F2E14B', f.deseo ? 2.4 : 1.6);
+      if (f.deseo) { anunciar('¡Les cumpliste el deseo!', '#FFB3E0', 3, true); confeti(k.x, k.y, 50); vibra(30); }
       confeti(f.x, f.y, 40); sonar('feliz');
     }
   }
@@ -1249,7 +1275,15 @@
     S.giroAcc -= Math.sign(S.giroAcc) * 2 * Math.PI;
     S.giros++; S.giroT = 0;
     const k = S.cab;
-    if (S.giros < C.mareoDesde) { if (S.giros === C.mareoDesde - 1) texto(k.x, k.y - 70, '¡Uy, ya me da vueltas la cabeza!', '#C6F08A', 1.8); return; }
+    if (S.giros < C.mareoDesde) { // las primeras donas les encantan
+      const bono = Math.round(0.05 * aBordo() * (S.noche ? 1.5 : 1) * 100) / 100;
+      for (const v of S.vagones) for (const p of v.asientos) if (p) p.div = Math.min(1, p.div + C.dona);
+      S.plata += bono; S.total += bono;
+      texto(k.x, k.y - 60, `¡Dona! +${Math.round(C.dona * 100)} % · +${plata(bono)}`, '#FFB3E0', 1.5);
+      confeti(k.x, k.y, 16); sonar('feliz'); vibra(15);
+      if (S.giros === C.mareoDesde - 1) texto(k.x, k.y - 95, 'Una más y se marean…', '#C6F08A', 1.8);
+      return;
+    }
     S.listos = false;
     for (const v of S.vagones) for (const p of v.asientos) if (p) { const q = Math.min(p.div, C.mareo); p.div -= q; p.mareo = (p.mareo || 0) + q; if (p.div < 1) p.feliz = false; }
     texto(k.x, k.y - 50, elige(['¡Me mareo!', '¡Ya no más vueltas!', '¡Qué mareo!', '¡Bájenme!']), '#C6F08A', 1.8);
@@ -1275,7 +1309,14 @@
         if (rd < r.isla + 30) { ox = r.x + rx / rd * (r.isla + 30); oy = r.y + ry / rd * (r.isla + 30); }
       }
       c.px = ox; c.py = oy;
-      if (Math.hypot(ox - k.x, oy - k.y) < 34 + C.cabezaA / 2 && k.enfriar <= 0 && Math.abs(k.v) > 30) {
+      const dd = Math.hypot(ox - k.x, oy - k.y);
+      c.pelo = Math.max(0, (c.pelo || 0) - dt);
+      if (dd > 34 + C.cabezaA / 2 + 6 && dd < 110 && k.v > 150 && c.pelo <= 0 && S.vuelta !== null && aBordo() > 0) {
+        c.pelo = 4;
+        for (const v of S.vagones) for (const p of v.asientos) if (p) p.div = Math.min(1, p.div + C.pelo);
+        texto(ox, oy - 30, `¡Por un pelo! +${Math.round(C.pelo * 100)} %`, '#9CE7FF', 1.3); sonar('combo', 4);
+      }
+      if (dd < 34 + C.cabezaA / 2 && k.enfriar <= 0 && Math.abs(k.v) > 30) {
         k.v = 0;
         S.plata -= 0.5;
         chocar(150, ox, oy, '¡Cuidado con los danzantes! −$0,50');
@@ -2250,7 +2291,7 @@
   function flechaFiesta() {
     if (!S.fiestas.length || S.vuelta === null) return;
     const k = S.cab;
-    const f = S.fiestas.reduce((a, b) => (Math.hypot(a.x - k.x, a.y - k.y) < Math.hypot(b.x - k.x, b.y - k.y) ? a : b));
+    const f = S.fiestas.find((q) => q.deseo) || S.fiestas.reduce((a, b) => (Math.hypot(a.x - k.x, a.y - k.y) < Math.hypot(b.x - k.x, b.y - k.y) ? a : b));
     const q = aPantalla(f.x, f.y);
     if (q.x > 30 && q.x < W - 30 && q.y > 90 && q.y < H - 90) return;
     const cx = W / 2, cy = H * piv, a = Math.atan2(q.y - cy, q.x - cx), r = Math.min(110, Math.min(W, H) * 0.26);
@@ -2441,7 +2482,7 @@
   const BAJO = [0, 0, -5, -5, -2, -2, -5, 0];
   function compasMusica() {
     if (!ac || !musicaOn) return;
-    const corchea = 60 / 132 / 2;
+    const corchea = 60 / (S && S.fiebre > 0 ? 176 : 132) / 2; // en fiesta total la banda toca más rápido
     while (sigNota < ac.currentTime + 0.25) {
       const i = compas % MELODIA.length;
       const m = MELODIA[i];

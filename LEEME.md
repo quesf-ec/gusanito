@@ -32,6 +32,14 @@ en una.red, no aquí.
 - **Puntos de fiesta ♪**: durante la vuelta hay 3 en la calle, cerca de la estación (`C.fiestas`). Pasar por uno
   les sube 12 % de diversión a todos (`C.fiestaDiv`) y deja $0,10 de propina por pasajero; aparece otro en otra
   parte. Una flechita rosada apunta al más cercano cuando no se ve en la pantalla.
+- **El deseo de la tanda**: al salir, la gente pide pasar por un lugar del pueblo («Quieren pasar por: Mercado
+  Sucre»), distinto cada vuelta. La flechita rosada te lleva; al llegar suben 25 % de diversión (`C.deseo`) y
+  dejan el triple de propina que un punto de fiesta.
+- **Fiesta total**: al llegar a combo ×6 (`C.fiebreDesde`) se arma por 6 s: se divierten el doble, la banda
+  toca más rápido y la cola suelta confeti.
+- **Donas**: los dos primeros giros completos seguidos les encantan (+8 % y propina cada uno, `C.dona`); al
+  tercero se marean.
+- **Por un pelo**: pasar rápido rozando a los danzantes sin toparlos sube 3 % (`C.pelo`).
 - **Para cobrar completo, el grupo tiene que llegar con 75 % de diversión o más.** Si no, **pagan a medias**
   (`C.medias`), llegues a tiempo o no, y la fila se molesta un poco.
 - **El susto se come la diversión**: todo lo que los asusta (latigazos fuertes, golpes, perros, roces) les baja
