@@ -47,7 +47,7 @@
     gasta: 0.08,            // cada vagón de más (desde el tercero) gasta este tanto más; acelerando, × 1,5
     reserva: 60,            // sin gasolina, el gusanito se arrastra a esta velocidad (px/s) hasta la estación
     deFrente: 0.8,
-    arrastre: 0.06,         // girar fuerte le quita velocidad (las llantas arrastran): por rad/s de giro, por segundo
+    arrastre: 0,         // girar fuerte le quita velocidad (las llantas arrastran): por rad/s de giro, por segundo
     tope: 0.12,             // cuánto frena rozar una pared (por paso, × lo de frente al cuadrado): suave
     // combo de zigzag: cada cambio de lado con buen meneo, antes de C.comboVentana s, suma; cada nivel de combo
     // multiplica lo que se divierten (+C.comboExtra, hasta C.comboMax niveles)
@@ -620,7 +620,7 @@
   //  · si no giras y vas en una calle, se endereza con la calle y se centra
   function ayudar(k, meta, dt) {
     const A = S.dif.asist, esquiva = Math.max(A, 0.35); // a no chocar ayuda siempre un poco, aun sin ayuda
-    if (C.fantasma || k.v < 30) return;
+    if (C.fantasma || k.v < 30 || meta !== 0) return; // mientras tú giras, el volante es solo tuyo
     const mira = 60 + k.v * 0.6;
     const libre = (da, m = mira) => { const a = k.ang + da; return !solido(k.x + Math.cos(a) * m, k.y + Math.sin(a) * m, C.cabezaA / 2); };
     if (!libre(0)) {
@@ -676,7 +676,7 @@
     if (k.maniobra > 0) { k.maniobra -= dt; meta = -k.mLado; if (k.maniobra <= 0) k.saliendo = 0.6; }
     else if (k.saliendo > 0) { k.saliendo -= dt; if (!meta) meta = k.mLado; }
     // el volante pesa más mientras más rápido va
-    k.giro += (meta - k.giro) * Math.min(1, C.giroSuave / (1 + Math.abs(k.v) / 500) * dt);
+    k.giro += (meta - k.giro) * Math.min(1, C.giroSuave * dt);
     const turbo = S.turbo.activo;
     let vMax = S.dif.vMax * (turbo ? C.turbo : 1);
     // con ayuda, afloja al acercarse a la estación (para que sea fácil parar ahí)
@@ -722,7 +722,7 @@
         k.v *= 1 - C.tope * deFrente * deFrente;
         const tx = -golpe.ny, ty = golpe.nx, sg = tx * dx + ty * dy >= 0 ? 1 : -1; // a lo largo de la pared, para donde iba
         const desvio = vuelta(Math.atan2(ty * sg, tx * sg) - k.ang);
-        if (!meta || Math.sign(meta) === Math.sign(desvio)) k.ang += desvio * Math.min(1, 5 * dt) * deFrente; // nunca contra tu volante
+        if (!meta) k.ang += desvio * Math.min(1, 5 * dt) * deFrente; // solo si no estás girando
         if (k.v > 170 && deFrente > 0.5 && k.enfriar <= 0) { // roce fuerte: polvo y un susto chiquito
           k.enfriar = 0.8; polvo(frente.x, frente.y, 4);
           for (const v of S.vagones) for (const p of v.asientos) if (p) p.miedo += 0.02;

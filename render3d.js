@@ -154,7 +154,7 @@ function construir() {
   for (const l of lineas) cinta(suelo, l.p, l.hw + 17, 4, VEREDA);
   for (const r of M.redondeles) { disco(suelo, r.x, r.y, r.R + 20, 3.3, BORDE); disco(suelo, r.x, r.y, r.R + 17, 4.1, VEREDA); }
   // el parque y los otros verdes
-  poligono(suelo, M.parque.p, 4.6, col('#B4E583'));
+  poligono(suelo, M.parque.p, 2.4, col('#B4E583')); // más abajo que la vereda y la calzada: si se montan, no parpadea
   for (const v of M.verdes) poligono(suelo, v.p, 1.2, col(v.campo ? '#C9DB7A' : '#B4E583'));
   disco(suelo, M.parque.x, M.parque.y, M.parque.r * 0.5 + 16, 4.8, col('#F4DDB0'));
   disco(suelo, M.parque.x, M.parque.y, M.parque.r * 0.5 - 16, 4.9, col('#B4E583'));
