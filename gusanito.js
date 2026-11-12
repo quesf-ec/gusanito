@@ -483,7 +483,7 @@
     const x0 = ESTACION.x + ESTACION.ux * 70 - ESTACION.nx * 16, y0 = ESTACION.y + ESTACION.uy * 70 - ESTACION.ny * 16;
     cierres = [];
     S = {
-      plata: 0, viajes: 0, felices: 0, asustados: 0, caidos: 0, choques: 0, seFueron: 0, devueltos: 0,
+      plata: 0, plataVis: 0, marcas: [], monedas: [], hitstop: 0, viajes: 0, felices: 0, asustados: 0, caidos: 0, choques: 0, seFueron: 0, devueltos: 0,
       vidas: C.vidas, confianza: 100, viajeT: 0, motivo: null, pico: 2, rompiendo: 0,
       decidiendo: false, listos: false, comb: C.tanque, avisoComb: 0, ronda: null, vueltasRedondel: 0, total: 0, barras: 0, parlante: false, luces: false, noche: false,
       corriendo: false, fin: false,
@@ -737,6 +737,7 @@
   // último vagón (con su gente, que se cae) y se pierde una vida. Sin vidas, se acaba.
   function estrellar(fuerza, x, y) {
     chocar(fuerza, x, y, '¡Pum!');
+    S.hitstop = 0.09; vibra(70);
     S.listos = false; // con un golpe se les va el gusto
     S.choques++; S.vidas--;
     restarConfianza(8);
@@ -978,14 +979,16 @@
       S.viajes++;
       S.plata += cobro; S.total += cobro;
       S.ultimo = { pct, cobro, devolver };
-      if (cobro > 0) { texto(ESTACION.x, ESTACION.y - 60, '+' + plata(cobro), '#8BD43B', 2); sonar('plata'); }
+      if (cobro > 0) { texto(ESTACION.x, ESTACION.y - 60, '+' + plata(cobro), '#8BD43B', 2); sonar('plata'); monedas(cobro); vibra(25); }
       if (devolver) {
         S.devueltos += n;
         anunciar(`Pagaron a medias: ${pct} % de diversión · ${plata(cobro)} (con 75 % pagan completo)`, '#FFB3A8', 3.5);
         restarConfianza(n * 2);
         if (S.fin) return;
       } else {
-        anunciar(`${pct >= 99 ? '¡100 %!' : `¡${pct} %!`} Cobraste ${plata(cobro)}${S.noche ? ' de noche' : ''}`, '#8BD43B', 3);
+        const es = pct >= 99 ? 3 : pct >= 85 ? 2 : 1;
+        anunciar(`${'★'.repeat(es)}${'☆'.repeat(3 - es)} ¡${pct} %! Cobraste ${plata(cobro)}${S.noche ? ' de noche' : ''}`, '#F2E14B', 3.5);
+        if (es === 3) confeti(ESTACION.x, ESTACION.y, 50);
         S.confianza = Math.min(100, S.confianza + 4);
       }
     }
@@ -1098,7 +1101,7 @@
     }).join('');
     $('#est-plata').textContent = plata(S.plata);
     const u = S.ultimo;
-    const ultimo = !u ? 'Primera vuelta' : u.devolver ? `Última vuelta: ${u.pct} %, pagaron a medias · +${plata(u.cobro)}` : `Última vuelta: ${u.pct} % · +${plata(u.cobro)}`;
+    const ultimo = !u ? 'Primera vuelta' : u.devolver ? `Última vuelta: ${u.pct} %, pagaron a medias · +${plata(u.cobro)}` : `Última vuelta: ${'★'.repeat(u.pct >= 99 ? 3 : u.pct >= 85 ? 2 : 1)} ${u.pct} % · +${plata(u.cobro)}`;
     $('#est-resumen').textContent = `${aBordo()} a bordo · fila ${S.est.fila.length} · ${ultimo}`;
     $('#b-vamonos').disabled = S.comb < 0.05 || aBordo() === 0;
     $('#est-vamonos-nota').textContent = S.comb < 0.05 ? 'primero tanquea' : `te quedan ${kmTxt(S.comb)} de gasolina`;
@@ -1168,7 +1171,8 @@
           if (S.combo >= 2) {
             const n = Math.min(S.combo, C.comboMax + 1);
             texto(k.x, k.y - 60, `¡Combo ×${S.combo}!`, ['#F2E14B', '#F6B940', '#F38B3B', '#E8458B', '#B46DE0', '#5FB4E6', '#8BD43B'][(n - 2) % 7], 0.9);
-            sonar('combo', n);
+            sonar('combo', n); vibra(12);
+            if (S.combo >= 3) { const u = S.vagones[S.vagones.length - 1]; confeti(u.x, u.y, 4 + Math.min(S.combo, 8)); }
           }
           S.mejorCombo = Math.max(S.mejorCombo || 0, S.combo);
         }
@@ -1351,6 +1355,27 @@
 
   // ─── Efectos ───────────────────────────────────────────────────────
   function texto(x, y, t, color, dur) { S.textos.push({ x, y, t, color, dur, vida: 0 }); }
+  // un toquecito en el celular (donde se puede)
+  const vibra = (ms) => { try { if (!quieto && navigator.vibrate) navigator.vibrate(ms); } catch { /* sin vibración */ } };
+  // al cobrar, las monedas saltan de la estación a la plata del marcador
+  function monedas(cobro) {
+    if (quieto) return;
+    const q = aPantalla(ESTACION.x, ESTACION.y), n = clamp(Math.ceil(cobro), 3, 14);
+    for (let i = 0; i < n; i++) S.monedas.push({ x: q.x + azar(-30, 30), y: q.y + azar(-20, 20), t: -i * 0.05, alto: azar(40, 110) });
+  }
+  // huellas de llanta: cuando un vagón se menea fuerte deja marcas en la calle, que se borran solas
+  function huellas(dt) {
+    for (const v of S.vagones) {
+      const marca = v.g > 620 && Math.hypot(v.vx, v.vy) > 110;
+      if (marca && v.hx !== undefined && Math.hypot(v.rx - v.hx, v.ry - v.hy) < 60) {
+        S.marcas.push({ x1: v.hx, y1: v.hy, x2: v.rx, y2: v.ry, nx: -Math.sin(v.ang) * 15, ny: Math.cos(v.ang) * 15, t: 0 });
+        if (!quieto && Math.random() < dt * 6) S.chispas.push({ x: v.rx, y: v.ry, vx: azar(-30, 30), vy: azar(-30, 30), vida: 0, dur: 0.5, c: 'rgba(240,235,225,.7)', r: azar(4, 8) });
+      }
+      v.hx = marca ? v.rx : undefined; v.hy = v.ry;
+    }
+    while (S.marcas.length > 500) S.marcas.shift();
+    for (let i = S.marcas.length - 1; i >= 0; i--) if ((S.marcas[i].t += dt) > 7) S.marcas.splice(i, 1);
+  }
   // avisos grandes, fijos arriba en la pantalla (no dependen de hacia dónde mire la cámara)
   // Los avisos van en su propia franja, debajo del marcador (no encima del mapa ni del HUD)
   function anunciar(t, color, dur, chico) {
@@ -1397,7 +1422,8 @@
     const real = Math.min(0.25, (ahora - ultimo) / 1000 || 0); // tiempo real, para el reloj
     const dt = Math.min(0.033, real);                            // paso de la física, recortado
     ultimo = ahora;
-    if (S.corriendo) {
+    if (S.corriendo && S.hitstop > 0) S.hitstop -= real; // el golpe se siente: un instante congelado
+    else if (S.corriendo) {
       const sub = 3, h = dt / sub;
       turbo(dt);
       const ang0 = S.cab.ang;
@@ -1406,12 +1432,14 @@
       combo(dt, vuelta(S.cab.ang - ang0));
       fiestas(dt);
       gastar(dt);
+      huellas(dt);
       pasajeros(dt); estacion(dt); caminantes(dt);
       romperSiHaceFalta(); colaAviso(); contarRedondel();
       if (S.rompiendo > 0 && (S.rompiendo -= dt) <= 0) terminar('partio');
       actualizarHud();
     } else S.turbo.activo = false;
     hudTurbo();
+    hudPlata(dt);
     efectos(dt);
     dibujar(dt);
     requestAnimationFrame(cuadro);
@@ -1519,6 +1547,16 @@
     for (const o of altos) sombraVol(o);
     altos.sort((a, b) => (b.cx * AX + b.cy * AY) - (a.cx * AX + a.cy * AY));
     for (const o of altos) if (o.arbol) arbol3d(o); else volumen(o);
+    // huellas de llanta
+    ctx.lineWidth = 6; ctx.lineCap = 'round';
+    for (const m of S.marcas) {
+      if (!ve(m.x1 - 30, m.y1 - 30, 60, 60)) continue;
+      ctx.strokeStyle = `rgba(70,62,60,${(0.3 * (1 - m.t / 7)).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.moveTo(m.x1 + m.nx, m.y1 + m.ny); ctx.lineTo(m.x2 + m.nx, m.y2 + m.ny);
+      ctx.moveTo(m.x1 - m.nx, m.y1 - m.ny); ctx.lineTo(m.x2 - m.nx, m.y2 - m.ny);
+      ctx.stroke();
+    }
     // puntos de fiesta
     for (const f of S.fiestas) if (ve(f.x - 120, f.y - 120, 240, 240)) puntoFiesta(f);
     // caminantes
@@ -1581,10 +1619,14 @@
       for (let i = 0; i < 6 && lugares.some((o) => Math.abs(o.x - q.x) < (o.w + w) / 2 && Math.abs(o.y - y) < fuente * 1.1); i++) y -= fuente * 1.1;
       lugares.push({ x: q.x, y, w });
       ctx.globalAlpha = 1 - Math.max(0, t.vida - t.dur * 0.6) / (t.dur * 0.4);
-      ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(30,15,40,.85)'; ctx.strokeText(t.t, q.x, y);
-      ctx.fillStyle = t.color; ctx.fillText(t.t, q.x, y);
+      const pop = quieto ? 1 : 1 + 0.5 * Math.max(0, 1 - t.vida / 0.18);
+      ctx.save(); ctx.translate(q.x, y); ctx.scale(pop, pop);
+      ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(60,35,20,.9)'; ctx.strokeText(t.t, 0, 0);
+      ctx.fillStyle = t.color; ctx.fillText(t.t, 0, 0);
+      ctx.restore();
     }
     ctx.globalAlpha = 1;
+    acabado(dt);
     if (rapidez > 0.05 && !quieto) rayas();
     medidorDiversion();
     zonasTactiles();
@@ -2016,6 +2058,45 @@
   }
   const CHOFER = { ropa: '#D6382B', pelo: '#111', piel: '#B97D55', sombrero: null };
 
+  // El acabado de la pantalla: bordes un poco más oscuros (viñeta), el combo sobre la trompa y las monedas
+  let vin = null;
+  function acabado(dt) {
+    if (!vin || vin.w !== W || vin.h !== H) {
+      const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.45, W / 2, H / 2, Math.hypot(W, H) * 0.62);
+      g.addColorStop(0, 'rgba(60,35,10,0)'); g.addColorStop(1, 'rgba(60,35,10,.24)');
+      vin = { g, w: W, h: H };
+    }
+    ctx.fillStyle = vin.g; ctx.fillRect(0, 0, W, H);
+    // combo: una ficha sobre la trompa, con un aro que se va acabando
+    if (S.combo >= 2 && S.corriendo) {
+      const x = W / 2, y = H * piv - Math.max(64, 78 * zoom), resto = clamp(1 - S.comboT / C.comboVentana, 0, 1);
+      const late = quieto ? 1 : 1 + 0.25 * Math.max(0, 1 - S.comboT / 0.15);
+      ctx.save(); ctx.translate(x, y); ctx.scale(late, late);
+      ctx.fillStyle = 'rgba(122,82,40,.35)'; ctx.beginPath(); ctx.arc(0, 3, 21, 0, 7); ctx.fill();
+      ctx.fillStyle = '#FFF6E3'; ctx.beginPath(); ctx.arc(0, 0, 21, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#E8CF9C'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 19, 0, 7); ctx.stroke();
+      ctx.strokeStyle = '#F36B3B'; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(0, 0, 19, -Math.PI / 2, -Math.PI / 2 + resto * Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#E2573E'; ctx.font = '700 17px Fredoka, Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('×' + S.combo, 0, 1);
+      ctx.restore();
+    }
+    // monedas volando al marcador
+    if (S.monedas.length) {
+      const r = h.plata.getBoundingClientRect(), tx = r.left + r.width / 2, ty = r.top + r.height / 2;
+      for (let i = S.monedas.length - 1; i >= 0; i--) {
+        const m = S.monedas[i];
+        m.t += dt;
+        if (m.t < 0) continue;
+        const p = Math.min(1, m.t / 0.65), e = p * p * (3 - 2 * p);
+        const x = m.x + (tx - m.x) * e, y = m.y + (ty - m.y) * e - Math.sin(p * Math.PI) * m.alto;
+        ctx.fillStyle = '#C98A1B'; ctx.beginPath(); ctx.arc(x, y + 2, 8, 0, 7); ctx.fill();
+        ctx.fillStyle = '#F6C445'; ctx.beginPath(); ctx.arc(x, y, 8, 0, 7); ctx.fill();
+        ctx.fillStyle = '#FFE58A'; ctx.beginPath(); ctx.arc(x - 2, y - 2, 3.5, 0, 7); ctx.fill();
+        if (p >= 1) { S.monedas.splice(i, 1); saltaPlata(); }
+      }
+    }
+  }
+
   // Rayas de velocidad a los costados de la pantalla mientras va más rápido que lo normal
   function rayas() {
     const t = performance.now() / 1000, banda = Math.min(110, W * 0.16);
@@ -2168,13 +2249,22 @@
     h.objetivo.textContent = txt; h.objetivo.className = 'objetivo ' + clase;
     h.tiempo.style.width = vt === null ? '0%' : (clamp(vt / C.vuelta, 0, 1) * 100) + '%';
     h.tiempo.classList.toggle('poco', vt !== null && vt <= C.ventana);
-    h.plata.textContent = plata(S.plata);
     h.largo.textContent = S.vagones.length;
     h.vueltas.textContent = S.viajes;
     h.comb.textContent = kmTxt(S.comb);
     h.comb.classList.toggle('mal', S.comb < 0.6);
     h.vidas.textContent = '♥'.repeat(S.vidas) + '♡'.repeat(Math.max(0, C.vidas - S.vidas));
   }
+
+  // La plata del marcador no salta: cuenta hasta el valor nuevo
+  let plataCache = '';
+  function hudPlata(dt) {
+    const d = S.plata - S.plataVis;
+    S.plataVis = Math.abs(d) < 0.01 ? S.plata : S.plataVis + d * Math.min(1, dt * 7);
+    const t = plata(S.plataVis);
+    if (t !== plataCache) { plataCache = t; h.plata.textContent = t; }
+  }
+  function saltaPlata() { h.plata.classList.remove('salta'); void h.plata.offsetWidth; h.plata.classList.add('salta'); }
 
   // El botón Acelera se ilumina mientras lo pisas
   const bTurbo = $('#m-turbo');

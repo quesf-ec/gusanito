@@ -195,6 +195,15 @@ De OpenStreetMap quedan solo las iglesias y los edificios grandes con nombre (co
 achicados hasta que no toquen las calles, que en el juego son más anchas que las reales. Las casas comunes
 las pone el juego a lo largo de cada calle.
 
+### El pulido
+
+Detalles para que todo responda: los golpes congelan un instante la pantalla y vibran en el celular; al cobrar
+salen **estrellas** (★ desde 75 %, ★★ desde 85 %, ★★★ con 100 %), las monedas vuelan de la estación al
+marcador y la plata cuenta hacia arriba; el combo se ve en una ficha sobre la trompa con un aro que se acaba;
+los vagones dejan huellas de llanta cuando se menean fuerte; los textos y los paneles entran con un saltito, y
+la pantalla tiene los bordes un poco más oscuros. La portada es corta, con las reglas completas plegadas en
+«¿Cómo se juega?». Con «reducir movimiento» no hay animaciones.
+
 ## Cómo está hecho
 
 Todo en `gusanito.js`, en canvas 2D, sin dependencias aparte del sistema de diseño MAL para el
